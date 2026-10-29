@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payment Funnel Audit</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
+    --good: #0ca30c; --warn: #fab219; --bad: #d03b3b; --info: #2a78d6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 16px 40px; }
+  h1 { font-size: 26px; margin: 0 0 4px; font-weight: 650; }
+  .sub { color: var(--ink-2); margin: 0 0 10px; }
+  .badge { display: inline-block; background: #fff6e0; border: 1px solid #f1d79a; color: #6b4b00; border-radius: 999px; padding: 3px 10px; font-size: 12.5px; margin-bottom: 18px; }
+  h2 { font-size: 18px; margin: 0 0 4px; font-weight: 640; }
+  .note { color: var(--muted); font-size: 12.5px; margin: 0 0 8px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin-bottom: 16px; }
+  .verdict { border-left: 4px solid var(--ink); font-size: 15px; }
+  .verdict ol { margin: 8px 0 0; padding-left: 22px; } .verdict li { margin: 6px 0; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .kpi { margin: 0; } .kpi .label { color: var(--ink-2); font-size: 13px; } .kpi .value { font-size: 26px; font-weight: 650; }
+  .chart { width: 100%; height: 300px; }
+  .tag { display: inline-block; font-size: 11.5px; font-weight: 600; border-radius: 4px; padding: 1px 7px; margin-left: 8px; vertical-align: 2px; }
+  .tag.bug { background: #fbe3e3; color: #9c1f1f; } .tag.beh { background: #e3f0fb; color: #184f95; } .tag.ux { background: #fff1d6; color: #6b4b00; }
+  .info { background: #eef4fc; border-left: 4px solid var(--info); border-radius: 6px; padding: 10px 14px; margin-top: 10px; }
+  .info.warn { background: #fff6e0; border-left-color: var(--warn); } .info.bad { background: #fdeeee; border-left-color: var(--bad); }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  th { color: var(--ink-2); font-weight: 600; font-size: 13px; } td.num, th.num { text-align: right; }
+  td.hl { background: #fdeeee; font-weight: 600; }
+  pre { background: #f3f2ee; border: 1px solid var(--grid); border-radius: 6px; padding: 12px; overflow-x: auto; font-size: 12.5px; line-height: 1.45; }
+  details summary { cursor: pointer; font-weight: 600; }
+  footer { color: var(--ink-2); font-size: 12.5px; } footer p { margin: 6px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Payment Funnel Audit — In-App Store</h1>
+  <p class="sub" id="sub"></p>
+  <span class="badge">Synthetic data · issues were planted to demonstrate the audit method</span>
+
+  <div class="card verdict"><b>Three drops in the funnel, three different kinds of problem — and only one of them is urgent.</b><ol><li><b>Android 5.2 bug</b> — the payment-method list fails to load for about a third of checkouts. ≈ $30.6k revenue lost per month (11% of revenue). <b>Fix first.</b></li><li><b>3-D Secure on mobile web</b> — users complete only 64% of card challenges vs 89% elsewhere. ≈ $2.1k per month. UX fix.</li><li><b>iOS "Buy" clicks without checkout</b> — the biggest-looking gap is <b>not a loss</b>: users close the price confirmation dialog by choice. Treating it as a broken button would book ≈ $20.7k/month of losses that don't exist.</li></ol></div>
+
+  <section class="kpis" id="kpis"></section>
+
+  <div class="card">
+    <h2>Funnel</h2>
+    <p class="note">Store sessions reaching each step · step conversion from the previous step by platform below</p>
+    <div class="chart" id="c-funnel" style="height:270px"></div>
+    <table id="t-funnel"></table>
+    <div class="info">Three cells stand out against the other platforms (highlighted): iOS <b>Buy → Checkout</b>, Android
+      <b>Checkout → Payment method</b>, and mobile web <b>Submit → Success</b>. Each is examined below — they turn out to be three different kinds of problem.</div>
+  </div>
+
+  <div class="card">
+    <h2>Android 5.2 Release <span class="tag bug">Bug</span></h2>
+    <p class="note">Checkout → payment method selected, daily</p>
+    <div class="chart" id="c-android"></div>
+    <table id="t-android"></table>
+    <div class="info bad">Since the 5.2 release (2026-08-31) only 51% of Android 5.2 checkouts reach payment-method selection, vs 80% on 5.1 over the same days and the same level on other platforms. 65% of 5.2 drop-offs log a <code>payment_methods_error</code> event (vs 0% on 5.1) — the payment-method list fails to load. At the current adoption this costs ≈ $30.6k per month. <b>Next step:</b> hotfix or roll back 5.2, and add an alert on step conversion by app version so the next regression is caught in a day, not weeks.</div>
+  </div>
+
+  <div class="card">
+    <h2>Buy Clicks Without Checkout <span class="tag beh">User behaviour</span></h2>
+    <p class="note">What happened after a "Buy" click, by platform</p>
+    <div class="chart" id="c-clicks" style="height:260px"></div>
+    <div class="info">On iOS only 73% of "Buy" clicks reach checkout vs 97% on other platforms — it looks like a broken button. But 25% of iOS clicks end with <code>price_dialog_closed</code>: the app shows a price confirmation and users decide not to continue. The unexplained remainder on iOS (2.5%) is no worse than elsewhere (3.3%–3.5%). <b>Not a bug — no engineering fix needed.</b> If the dialog itself is worth questioning, that is a product decision to A/B test, not a defect.</div>
+  </div>
+
+  <div class="card">
+    <h2>3-D Secure on Mobile Web <span class="tag ux">UX / payments</span></h2>
+    <p class="note">Card payments: share of 3-D Secure challenges the user completed</p>
+    <div class="chart" id="c-3ds" style="height:260px"></div>
+    <table id="t-3ds"></table>
+    <div class="info warn">Mobile-web users complete 64% of 3-D Secure challenges vs 89% on other platforms. Card payments without a challenge succeed at the same rate as elsewhere (91%), so the problem is the challenge step itself, not card declines. ≈ $2.1k per month. <b>Next step:</b> check how the challenge renders in mobile browsers (embedded frame vs redirect, switching to the bank app and back), and whether low-value payments can use a 3-D Secure exemption.</div>
+  </div>
+
+  <div class="card">
+    <h2>Priorities</h2>
+    <table id="t-prio"></table>
+    <p class="note" style="margin-top:8px">Revenue impact = lost conversions × downstream conversion × average order value, scaled to 30 days. Android uses the run-rate of the last 7 days (85% of Android users on 5.2).</p>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>How the funnel was measured (SQL)</summary>
+      <p class="note" style="margin-top:8px">One row per session with a flag per step, then aggregated by platform. The same session table feeds every query in the audit.</p>
+      <pre id="sql"></pre>
+    </details>
+  </div>
+
+  <footer>
+    <p><b>Data.</b> Synthetic event log for a fictional app (250,000 store sessions, 8 weeks, 4 platforms), generated with a fixed seed.
+      Three issues were planted on purpose; the audit works only from events and recovered all three (estimated vs planted:
+      Android failure 35.9% vs 35.0%, iOS dialog close 24.8% vs 25.0%, mobile-web 3-D Secure completion 64.3% vs 62.0%).</p>
+    <p><b>Tools.</b> SQL (DuckDB) for the funnel queries, Python for data generation, ECharts for the report.</p>
+  </footer>
+</div>
+
+<script>
+const R = {"period": {"start": "2026-08-03 00:00:00", "end": "2026-09-27 00:00:00", "days": 56}, "funnel": [{"platform": "all", "store_open": 250000, "buy_click": 67811.0, "checkout_open": 61280.0, "method_selected": 46918.0, "payment_submit": 40992.0, "payment_success": 38042.0, "revenue": 530239.58}, {"platform": "android", "store_open": 74619, "buy_click": 20176.0, "checkout_open": 19487.0, "method_selected": 13488.0, "payment_submit": 11959.0, "payment_success": 11182.0, "revenue": 153948.18}, {"platform": "ios", "store_open": 62598, "buy_click": 17627.0, "checkout_open": 12808.0, "method_selected": 10267.0, "payment_submit": 9027.0, "payment_success": 8502.0, "revenue": 117174.98}, {"platform": "web_desktop", "store_open": 62837, "buy_click": 18974.0, "checkout_open": 18317.0, "method_selected": 14601.0, "payment_submit": 12606.0, "payment_success": 11734.0, "revenue": 166562.66}, {"platform": "web_mobile", "store_open": 49946, "buy_click": 11034.0, "checkout_open": 10668.0, "method_selected": 8562.0, "payment_submit": 7400.0, "payment_success": 6624.0, "revenue": 92553.76}], "revenue_monthly": 284056.91785714286, "daily": [{"day": "2026-08-03", "series": "Android 5.1", "checkout": 352.0, "method": 300.0}, {"day": "2026-08-03", "series": "Other platforms", "checkout": 772.0, "method": 611.0}, {"day": "2026-08-04", "series": "Android 5.1", "checkout": 348.0, "method": 271.0}, {"day": "2026-08-04", "series": "Other platforms", "checkout": 750.0, "method": 601.0}, {"day": "2026-08-05", "series": "Android 5.1", "checkout": 341.0, "method": 276.0}, {"day": "2026-08-05", "series": "Other platforms", "checkout": 690.0, "method": 547.0}, {"day": "2026-08-06", "series": "Android 5.1", "checkout": 339.0, "method": 284.0}, {"day": "2026-08-06", "series": "Other platforms", "checkout": 751.0, "method": 599.0}, {"day": "2026-08-07", "series": "Other platforms", "checkout": 698.0, "method": 579.0}, {"day": "2026-08-07", "series": "Android 5.1", "checkout": 354.0, "method": 294.0}, {"day": "2026-08-08", "series": "Android 5.1", "checkout": 335.0, "method": 276.0}, {"day": "2026-08-08", "series": "Other platforms", "checkout": 732.0, "method": 578.0}, {"day": "2026-08-09", "series": "Android 5.1", "checkout": 337.0, "method": 264.0}, {"day": "2026-08-09", "series": "Other platforms", "checkout": 725.0, "method": 561.0}, {"day": "2026-08-10", "series": "Other platforms", "checkout": 775.0, "method": 619.0}, {"day": "2026-08-10", "series": "Android 5.1", "checkout": 337.0, "method": 276.0}, {"day": "2026-08-11", "series": "Other platforms", "checkout": 757.0, "method": 620.0}, {"day": "2026-08-11", "series": "Android 5.1", "checkout": 355.0, "method": 283.0}, {"day": "2026-08-12", "series": "Other platforms", "checkout": 756.0, "method": 602.0}, {"day": "2026-08-12", "series": "Android 5.1", "checkout": 374.0, "method": 301.0}, {"day": "2026-08-13", "series": "Android 5.1", "checkout": 326.0, "method": 257.0}, {"day": "2026-08-13", "series": "Other platforms", "checkout": 769.0, "method": 629.0}, {"day": "2026-08-14", "series": "Other platforms", "checkout": 732.0, "method": 583.0}, {"day": "2026-08-14", "series": "Android 5.1", "checkout": 365.0, "method": 299.0}, {"day": "2026-08-15", "series": "Other platforms", "checkout": 777.0, "method": 640.0}, {"day": "2026-08-15", "series": "Android 5.1", "checkout": 351.0, "method": 283.0}, {"day": "2026-08-16", "series": "Other platforms", "checkout": 756.0, "method": 607.0}, {"day": "2026-08-16", "series": "Android 5.1", "checkout": 366.0, "method": 296.0}, {"day": "2026-08-17", "series": "Other platforms", "checkout": 747.0, "method": 602.0}, {"day": "2026-08-17", "series": "Android 5.1", "checkout": 336.0, "method": 261.0}, {"day": "2026-08-18", "series": "Android 5.1", "checkout": 341.0, "method": 278.0}, {"day": "2026-08-18", "series": "Other platforms", "checkout": 699.0, "method": 578.0}, {"day": "2026-08-19", "series": "Other platforms", "checkout": 751.0, "method": 591.0}, {"day": "2026-08-19", "series": "Android 5.1", "checkout": 352.0, "method": 293.0}, {"day": "2026-08-20", "series": "Android 5.1", "checkout": 371.0, "method": 287.0}, {"day": "2026-08-20", "series": "Other platforms", "checkout": 761.0, "method": 604.0}, {"day": "2026-08-21", "series": "Other platforms", "checkout": 728.0, "method": 567.0}, {"day": "2026-08-21", "series": "Android 5.1", "checkout": 332.0, "method": 259.0}, {"day": "2026-08-22", "series": "Other platforms", "checkout": 754.0, "method": 595.0}, {"day": "2026-08-22", "series": "Android 5.1", "checkout": 332.0, "method": 264.0}, {"day": "2026-08-23", "series": "Android 5.1", "checkout": 360.0, "method": 271.0}, {"day": "2026-08-23", "series": "Other platforms", "checkout": 736.0, "method": 580.0}, {"day": "2026-08-24", "series": "Other platforms", "checkout": 747.0, "method": 607.0}, {"day": "2026-08-24", "series": "Android 5.1", "checkout": 319.0, "method": 259.0}, {"day": "2026-08-25", "series": "Other platforms", "checkout": 751.0, "method": 604.0}, {"day": "2026-08-25", "series": "Android 5.1", "checkout": 330.0, "method": 266.0}, {"day": "2026-08-26", "series": "Other platforms", "checkout": 796.0, "method": 644.0}, {"day": "2026-08-26", "series": "Android 5.1", "checkout": 349.0, "method": 276.0}, {"day": "2026-08-27", "series": "Other platforms", "checkout": 750.0, "method": 613.0}, {"day": "2026-08-27", "series": "Android 5.1", "checkout": 344.0, "method": 285.0}, {"day": "2026-08-28", "series": "Android 5.1", "checkout": 343.0, "method": 273.0}, {"day": "2026-08-28", "series": "Other platforms", "checkout": 729.0, "method": 575.0}, {"day": "2026-08-29", "series": "Other platforms", "checkout": 691.0, "method": 537.0}, {"day": "2026-08-29", "series": "Android 5.1", "checkout": 336.0, "method": 257.0}, {"day": "2026-08-30", "series": "Android 5.1", "checkout": 343.0, "method": 268.0}, {"day": "2026-08-30", "series": "Other platforms", "checkout": 787.0, "method": 639.0}, {"day": "2026-08-31", "series": "Android 5.1", "checkout": 305.0, "method": 246.0}, {"day": "2026-08-31", "series": "Android 5.2", "checkout": 42.0, "method": 21.0}, {"day": "2026-08-31", "series": "Other platforms", "checkout": 745.0, "method": 605.0}, {"day": "2026-09-01", "series": "Other platforms", "checkout": 766.0, "method": 620.0}, {"day": "2026-09-01", "series": "Android 5.2", "checkout": 87.0, "method": 45.0}, {"day": "2026-09-01", "series": "Android 5.1", "checkout": 283.0, "method": 230.0}, {"day": "2026-09-02", "series": "Other platforms", "checkout": 735.0, "method": 580.0}, {"day": "2026-09-02", "series": "Android 5.2", "checkout": 120.0, "method": 57.0}, {"day": "2026-09-02", "series": "Android 5.1", "checkout": 216.0, "method": 165.0}, {"day": "2026-09-03", "series": "Other platforms", "checkout": 738.0, "method": 587.0}, {"day": "2026-09-03", "series": "Android 5.2", "checkout": 180.0, "method": 93.0}, {"day": "2026-09-03", "series": "Android 5.1", "checkout": 165.0, "method": 128.0}, {"day": "2026-09-04", "series": "Android 5.1", "checkout": 157.0, "method": 131.0}, {"day": "2026-09-04", "series": "Other platforms", "checkout": 711.0, "method": 559.0}, {"day": "2026-09-04", "series": "Android 5.2", "checkout": 204.0, "method": 109.0}, {"day": "2026-09-05", "series": "Other platforms", "checkout": 775.0, "method": 604.0}, {"day": "2026-09-05", "series": "Android 5.1", "checkout": 89.0, "method": 72.0}, {"day": "2026-09-05", "series": "Android 5.2", "checkout": 246.0, "method": 126.0}, {"day": "2026-09-06", "series": "Other platforms", "checkout": 757.0, "method": 609.0}, {"day": "2026-09-06", "series": "Android 5.1", "checkout": 52.0, "method": 41.0}, {"day": "2026-09-06", "series": "Android 5.2", "checkout": 279.0, "method": 140.0}, {"day": "2026-09-07", "series": "Android 5.1", "checkout": 54.0, "method": 41.0}, {"day": "2026-09-07", "series": "Android 5.2", "checkout": 311.0, "method": 147.0}, {"day": "2026-09-07", "series": "Other platforms", "checkout": 799.0, "method": 639.0}, {"day": "2026-09-08", "series": "Android 5.1", "checkout": 66.0, "method": 55.0}, {"day": "2026-09-08", "series": "Android 5.2", "checkout": 266.0, "method": 144.0}, {"day": "2026-09-08", "series": "Other platforms", "checkout": 693.0, "method": 548.0}, {"day": "2026-09-09", "series": "Other platforms", "checkout": 768.0, "method": 619.0}, {"day": "2026-09-09", "series": "Android 5.2", "checkout": 306.0, "method": 180.0}, {"day": "2026-09-09", "series": "Android 5.1", "checkout": 65.0, "method": 56.0}, {"day": "2026-09-10", "series": "Android 5.1", "checkout": 48.0, "method": 40.0}, {"day": "2026-09-10", "series": "Android 5.2", "checkout": 264.0, "method": 128.0}, {"day": "2026-09-10", "series": "Other platforms", "checkout": 758.0, "method": 607.0}, {"day": "2026-09-11", "series": "Android 5.1", "checkout": 48.0, "method": 41.0}, {"day": "2026-09-11", "series": "Other platforms", "checkout": 740.0, "method": 592.0}, {"day": "2026-09-11", "series": "Android 5.2", "checkout": 308.0, "method": 163.0}, {"day": "2026-09-12", "series": "Other platforms", "checkout": 790.0, "method": 632.0}, {"day": "2026-09-12", "series": "Android 5.1", "checkout": 51.0, "method": 41.0}, {"day": "2026-09-12", "series": "Android 5.2", "checkout": 296.0, "method": 162.0}, {"day": "2026-09-13", "series": "Android 5.1", "checkout": 61.0, "method": 50.0}, {"day": "2026-09-13", "series": "Other platforms", "checkout": 765.0, "method": 616.0}, {"day": "2026-09-13", "series": "Android 5.2", "checkout": 275.0, "method": 156.0}, {"day": "2026-09-14", "series": "Other platforms", "checkout": 721.0, "method": 549.0}, {"day": "2026-09-14", "series": "Android 5.2", "checkout": 302.0, "method": 157.0}, {"day": "2026-09-14", "series": "Android 5.1", "checkout": 49.0, "method": 36.0}, {"day": "2026-09-15", "series": "Android 5.2", "checkout": 310.0, "method": 132.0}, {"day": "2026-09-15", "series": "Android 5.1", "checkout": 60.0, "method": 52.0}, {"day": "2026-09-15", "series": "Other platforms", "checkout": 750.0, "method": 601.0}, {"day": "2026-09-16", "series": "Android 5.2", "checkout": 307.0, "method": 150.0}, {"day": "2026-09-16", "series": "Other platforms", "checkout": 730.0, "method": 591.0}, {"day": "2026-09-16", "series": "Android 5.1", "checkout": 52.0, "method": 38.0}, {"day": "2026-09-17", "series": "Android 5.2", "checkout": 291.0, "method": 152.0}, {"day": "2026-09-17", "series": "Other platforms", "checkout": 723.0, "method": 578.0}, {"day": "2026-09-17", "series": "Android 5.1", "checkout": 53.0, "method": 41.0}, {"day": "2026-09-18", "series": "Other platforms", "checkout": 757.0, "method": 612.0}, {"day": "2026-09-18", "series": "Android 5.1", "checkout": 47.0, "method": 35.0}, {"day": "2026-09-18", "series": "Android 5.2", "checkout": 312.0, "method": 158.0}, {"day": "2026-09-19", "series": "Android 5.1", "checkout": 50.0, "method": 41.0}, {"day": "2026-09-19", "series": "Android 5.2", "checkout": 290.0, "method": 147.0}, {"day": "2026-09-19", "series": "Other platforms", "checkout": 733.0, "method": 579.0}, {"day": "2026-09-20", "series": "Android 5.1", "checkout": 55.0, "method": 43.0}, {"day": "2026-09-20", "series": "Android 5.2", "checkout": 288.0, "method": 147.0}, {"day": "2026-09-20", "series": "Other platforms", "checkout": 816.0, "method": 658.0}, {"day": "2026-09-21", "series": "Android 5.1", "checkout": 58.0, "method": 42.0}, {"day": "2026-09-21", "series": "Android 5.2", "checkout": 318.0, "method": 176.0}, {"day": "2026-09-21", "series": "Other platforms", "checkout": 711.0, "method": 573.0}, {"day": "2026-09-22", "series": "Other platforms", "checkout": 712.0, "method": 558.0}, {"day": "2026-09-22", "series": "Android 5.2", "checkout": 309.0, "method": 161.0}, {"day": "2026-09-22", "series": "Android 5.1", "checkout": 49.0, "method": 40.0}, {"day": "2026-09-23", "series": "Other platforms", "checkout": 760.0, "method": 617.0}, {"day": "2026-09-23", "series": "Android 5.2", "checkout": 311.0, "method": 162.0}, {"day": "2026-09-23", "series": "Android 5.1", "checkout": 62.0, "method": 52.0}, {"day": "2026-09-24", "series": "Android 5.1", "checkout": 48.0, "method": 42.0}, {"day": "2026-09-24", "series": "Android 5.2", "checkout": 287.0, "method": 131.0}, {"day": "2026-09-24", "series": "Other platforms", "checkout": 762.0, "method": 605.0}, {"day": "2026-09-25", "series": "Android 5.2", "checkout": 310.0, "method": 151.0}, {"day": "2026-09-25", "series": "Other platforms", "checkout": 735.0, "method": 598.0}, {"day": "2026-09-25", "series": "Android 5.1", "checkout": 57.0, "method": 42.0}, {"day": "2026-09-26", "series": "Other platforms", "checkout": 761.0, "method": 607.0}, {"day": "2026-09-26", "series": "Android 5.1", "checkout": 57.0, "method": 44.0}, {"day": "2026-09-26", "series": "Android 5.2", "checkout": 309.0, "method": 165.0}, {"day": "2026-09-27", "series": "Android 5.1", "checkout": 56.0, "method": 47.0}, {"day": "2026-09-27", "series": "Other platforms", "checkout": 715.0, "method": 575.0}, {"day": "2026-09-27", "series": "Android 5.2", "checkout": 278.0, "method": 139.0}], "release_day": "2026-08-31 00:00:00", "android_v": [{"app_version": "5.1", "checkout": 2413.0, "method_rate": 0.8006630750103605, "error_events": 0.0, "dropped": 481.0, "error_share_of_drops": 0.0, "success_after_method": 0.8255693581780539, "aov": 14.16868338557978}, {"app_version": "5.2", "checkout": 7406.0, "method_rate": 0.5129624628679449, "error_events": 2352.0, "dropped": 3607.0, "error_share_of_drops": 0.6520654283337954, "success_after_method": 0.8370623848381153, "aov": 13.669245283018958}], "android_lost_monthly": 30605.00403942343, "clicks": [{"platform": "android", "clicks": 20176.0, "checkout": 19487.0, "dialog_closed": 0.0, "unexplained": 689.0, "checkout_rate": 0.9658505154639175, "dialog_closed_rate": 0.0, "unexplained_rate": 0.03414948453608247}, {"platform": "ios", "clicks": 17627.0, "checkout": 12808.0, "dialog_closed": 4373.0, "unexplained": 446.0, "checkout_rate": 0.7266125829693084, "dialog_closed_rate": 0.24808532365121688, "unexplained_rate": 0.025302093379474668}, {"platform": "web_desktop", "clicks": 18974.0, "checkout": 18317.0, "dialog_closed": 0.0, "unexplained": 657.0, "checkout_rate": 0.9653736692315801, "dialog_closed_rate": 0.0, "unexplained_rate": 0.03462633076841994}, {"platform": "web_mobile", "clicks": 11034.0, "checkout": 10668.0, "dialog_closed": 0.0, "unexplained": 366.0, "checkout_rate": 0.9668297988036977, "dialog_closed_rate": 0.0, "unexplained_rate": 0.03317020119630234}], "threeds": [{"platform": "android", "card_submits": 4992.0, "challenged": 1769.0, "completed": 1568.0, "success_challenged": 0.8388920293951385, "success_not_challenged": 0.921811976419485, "aov": 13.845218855219356, "completion_rate": 0.886376483889203}, {"platform": "ios", "card_submits": 3375.0, "challenged": 1165.0, "completed": 1038.0, "success_challenged": 0.8394849785407725, "success_not_challenged": 0.9248868778280543, "aov": 13.898007941760495, "completion_rate": 0.8909871244635194}, {"platform": "web_desktop", "card_submits": 6016.0, "challenged": 2119.0, "completed": 1902.0, "success_challenged": 0.8532326569136385, "success_not_challenged": 0.9232743135745445, "aov": 14.065101738809217, "completion_rate": 0.8975932043416706}, {"platform": "web_mobile", "card_submits": 3447.0, "challenged": 1170.0, "completed": 752.0, "success_challenged": 0.6188034188034188, "success_not_challenged": 0.9148001756697409, "aov": 14.13321339508371, "completion_rate": 0.6427350427350428}], "threeds_bench": 0.8921432812190778, "threeds_lost_monthly": 2097.6527450003437, "methods": [{"payment_method": "card", "submits": 17830, "success_rate": 0.8799775659001683}, {"payment_method": "google_pay", "submits": 6646, "success_rate": 0.9697562443575083}, {"payment_method": "apple_pay", "submits": 6550, "success_rate": 0.9706870229007634}, {"payment_method": "saved_card", "submits": 5535, "success_rate": 0.9506775067750678}, {"payment_method": "paypal", "submits": 4431, "success_rate": 0.967501692620176}], "funnel_sql": "WITH sessions AS (\n    SELECT\n        session_id,\n        any_value(platform)                                         AS platform,\n        any_value(app_version)                                      AS app_version,\n        CAST(min(ts) AS DATE)                                       AS day,\n        max(event_name = 'buy_click')::INT                          AS buy_click,\n        max(event_name = 'price_dialog_closed')::INT                AS dialog_closed,\n        max(event_name = 'checkout_open')::INT                      AS checkout_open,\n        max(event_name = 'payment_methods_error')::INT              AS pm_error,\n        max(event_name = 'payment_method_selected')::INT            AS method_selected,\n        max(event_name = 'payment_submit')::INT                     AS payment_submit,\n        max(event_name = 'threeds_challenge_shown')::INT            AS threeds_shown,\n        max(event_name = 'payment_success')::INT                    AS payment_success,\n        max(CASE WHEN event_name = 'payment_failed' THEN fail_reason END) AS fail_reason,\n        max(CASE WHEN event_name = 'payment_submit' THEN payment_method END) AS payment_method,\n        sum(CASE WHEN event_name = 'payment_success' THEN amount ELSE 0 END) AS revenue\n    FROM events\n    GROUP BY session_id\n)\nSELECT\n    platform,\n    count(*)                  AS store_open,\n    sum(buy_click)            AS buy_click,\n    sum(checkout_open)        AS checkout_open,\n    sum(method_selected)      AS method_selected,\n    sum(payment_submit)       AS payment_submit,\n    sum(payment_success)      AS payment_success,\n    round(sum(revenue), 2)    AS revenue\nFROM sessions\nGROUP BY ROLLUP (platform)\nORDER BY platform NULLS FIRST"};
+const C = { s1: '#2a78d6', s2: '#eb6834', s3: '#1baf7a', s4: '#eda100', ink: '#0b0b0b', ink2: '#52514e', muted: '#898781',
+            grid: '#e1e0d9', axis: '#c3c2b7', surface: '#fcfcfb', gray: '#b5b3ab' };
+const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+const PL = { web_desktop: 'Web desktop', web_mobile: 'Mobile web', ios: 'iOS app', android: 'Android app' };
+const ORDER = ['web_desktop', 'web_mobile', 'ios', 'android'];
+const pct = (v, d = 1) => (v * 100).toFixed(d) + '%';
+const usd = v => '$' + Math.round(v).toLocaleString('en-US');
+const fmt = v => Math.round(v).toLocaleString('en-US');
+const base = {
+  textStyle: { fontFamily: FONT, color: C.ink2 },
+  tooltip: { backgroundColor: '#fff', borderColor: C.axis, textStyle: { color: C.ink, fontFamily: FONT } },
+  legend: { top: 0, left: 0, icon: 'roundRect', itemWidth: 12, itemHeight: 8, textStyle: { color: C.ink2 } },
+};
+const cat = x => Object.assign({ type: 'category', axisLine: { lineStyle: { color: C.axis } }, axisTick: { show: false }, axisLabel: { color: C.ink2 } }, x);
+const val = x => Object.assign({ type: 'value', min: 0, splitLine: { lineStyle: { color: C.grid } }, axisLabel: { color: C.muted } }, x);
+const mk = id => { const c = echarts.init(document.getElementById(id), null, { renderer: 'svg' }); addEventListener('resize', () => c.resize()); return c; };
+
+const F = Object.fromEntries(R.funnel.map(r => [r.platform, r]));
+const STEPS = [['store_open', 'Store opened'], ['buy_click', 'Buy clicked'], ['checkout_open', 'Checkout opened'],
+  ['method_selected', 'Payment method selected'], ['payment_submit', 'Payment submitted'], ['payment_success', 'Payment succeeded']];
+document.getElementById('sub').textContent =
+  `Fictional app · ${fmt(F.all.store_open)} store sessions · ${R.period.start.slice(0, 10)} – ${R.period.end.slice(0, 10)} · web desktop, mobile web, iOS, Android`;
+
+document.getElementById('kpis').innerHTML = [
+  ['Store sessions', fmt(F.all.store_open)],
+  ['Purchase conversion', pct(F.all.payment_success / F.all.store_open)],
+  ['Checkout → paid', pct(F.all.payment_success / F.all.checkout_open)],
+  ['Revenue / month', usd(R.revenue_monthly)],
+].map(([l, v]) => `<div class="card kpi"><div class="label">${l}</div><div class="value">${v}</div></div>`).join('');
+
+// overall funnel bars
+mk('c-funnel').setOption(Object.assign({}, base, {
+  grid: { left: 170, right: 90, top: 6, bottom: 6 },
+  tooltip: Object.assign({}, base.tooltip, { trigger: 'item', formatter: q => `${q.name}: <b>${fmt(q.value)}</b> sessions` }),
+  xAxis: { type: 'value', show: false, min: 0 },
+  yAxis: cat({ data: STEPS.map(s => s[1]), inverse: true, axisLine: { show: false } }),
+  series: [{ type: 'bar', data: STEPS.map(s => F.all[s[0]]), barMaxWidth: 26, itemStyle: { color: C.s1, borderRadius: [0, 4, 4, 0] },
+    label: { show: true, position: 'right', color: C.ink2, formatter: q => fmt(q.value) + (q.dataIndex ? '  (' + pct(q.value / F.all[STEPS[q.dataIndex - 1][0]], 0) + ')' : '') } }],
+}));
+const HL = { 'buy_click>checkout_open|ios': 1, 'checkout_open>method_selected|android': 1, 'payment_submit>payment_success|web_mobile': 1 };
+document.getElementById('t-funnel').innerHTML =
+  '<tr><th>Step</th>' + ORDER.map(p => `<th class="num">${PL[p]}</th>`).join('') + '<th class="num">All</th></tr>' +
+  STEPS.slice(1).map((s, i) => {
+    const prev = STEPS[i][0];
+    return `<tr><td>${STEPS[i][1]} → ${s[1]}</td>` + ORDER.map(p =>
+      `<td class="num${HL[prev + '>' + s[0] + '|' + p] ? ' hl' : ''}">${pct(F[p][s[0]] / F[p][prev])}</td>`).join('') +
+      `<td class="num">${pct(F.all[s[0]] / F.all[prev])}</td></tr>`;
+  }).join('');
+
+// Android daily
+const series = {};
+R.daily.forEach(d => { (series[d.series] = series[d.series] || {})[d.day] = d.method / d.checkout; });
+const days = [...new Set(R.daily.map(d => d.day))].sort();
+const lineCol = { 'Android 5.1': C.s1, 'Android 5.2': C.s2, 'Other platforms': C.gray };
+mk('c-android').setOption(Object.assign({}, base, {
+  grid: { left: 48, right: 16, top: 56, bottom: 28 },
+  tooltip: Object.assign({}, base.tooltip, { trigger: 'axis', valueFormatter: v => v == null ? '—' : pct(v) }),
+  xAxis: cat({ data: days, boundaryGap: false, axisLabel: { color: C.muted, formatter: v => v.slice(5) } }),
+  yAxis: val({ max: 1, axisLabel: { color: C.muted, formatter: v => pct(v, 0) } }),
+  series: ['Other platforms', 'Android 5.1', 'Android 5.2'].map(n => ({
+    name: n, type: 'line', showSymbol: false, symbolSize: 8, connectNulls: false,
+    data: days.map(d => series[n] && series[n][d] != null ? series[n][d] : null),
+    lineStyle: { width: 2, color: lineCol[n], type: n === 'Other platforms' ? 'dashed' : 'solid' }, itemStyle: { color: lineCol[n] },
+    markLine: n === 'Android 5.2' ? { silent: true, symbol: 'none', lineStyle: { color: C.ink2, type: 'dotted' },
+      label: { formatter: '5.2 release', color: C.ink2, position: 'end', rotate: 0 }, data: [{ xAxis: R.release_day.slice(0, 10) }] } : undefined,
+  })),
+}));
+document.getElementById('t-android').innerHTML =
+  '<tr><th>Android version (since release)</th><th class="num">Checkouts</th><th class="num">Payment method selected</th><th class="num">Drop-offs with an error event</th></tr>' +
+  R.android_v.map(v => `<tr><td>${v.app_version}</td><td class="num">${fmt(v.checkout)}</td><td class="num${v.app_version === '5.2' ? ' hl' : ''}">${pct(v.method_rate)}</td>` +
+    `<td class="num">${pct(v.error_share_of_drops)}</td></tr>`).join('');
+
+// clicks stacked 100%
+const CK = Object.fromEntries(R.clicks.map(c => [c.platform, c]));
+mk('c-clicks').setOption(Object.assign({}, base, {
+  grid: { left: 100, right: 56, top: 36, bottom: 24 },
+  tooltip: Object.assign({}, base.tooltip, { trigger: 'axis', axisPointer: { type: 'shadow' }, valueFormatter: v => pct(v) }),
+  xAxis: val({ max: 1, axisLabel: { color: C.muted, formatter: v => pct(v, 0) } }),
+  yAxis: cat({ data: ORDER.map(p => PL[p]), inverse: true }),
+  series: [['Reached checkout', 'checkout_rate', C.s1], ['Closed the price dialog', 'dialog_closed_rate', C.s3], ['No checkout, no signal', 'unexplained_rate', C.s2]]
+    .map(([n, k, col]) => ({ name: n, type: 'bar', stack: 'c', barMaxWidth: 26, data: ORDER.map(p => CK[p][k]),
+      itemStyle: { color: col, borderColor: C.surface, borderWidth: 1 },
+      // dialog share sits inside its own (wide) segment; the small "no signal" share goes to the right of the bar
+      label: k === 'checkout_rate' ? { show: false }
+        : k === 'dialog_closed_rate' ? { show: true, position: 'inside', color: '#fff', fontWeight: 600, formatter: q => q.value > 0.005 ? pct(q.value) : '' }
+        : { show: true, position: 'right', color: C.ink2, formatter: q => pct(q.value) } })),
+}));
+
+// 3DS
+const T = Object.fromEntries(R.threeds.map(t => [t.platform, t]));
+mk('c-3ds').setOption(Object.assign({}, base, {
+  grid: { left: 48, right: 16, top: 16, bottom: 28 },
+  tooltip: Object.assign({}, base.tooltip, { trigger: 'axis', axisPointer: { type: 'shadow' }, valueFormatter: v => pct(v) }),
+  xAxis: cat({ data: ORDER.map(p => PL[p]) }),
+  yAxis: val({ max: 1, axisLabel: { color: C.muted, formatter: v => pct(v, 0) } }),
+  series: [{ type: 'bar', barMaxWidth: 56, data: ORDER.map(p => ({ value: T[p].completion_rate, itemStyle: { color: p === 'web_mobile' ? C.s2 : C.s1, borderRadius: [4, 4, 0, 0] } })),
+    label: { show: true, position: 'top', color: C.ink2, formatter: q => pct(q.value) } }],
+}));
+document.getElementById('t-3ds').innerHTML =
+  '<tr><th>Platform</th><th class="num">Card payments</th><th class="num">3-D Secure challenges</th><th class="num">Challenge completed</th><th class="num">Success, challenged</th><th class="num">Success, not challenged</th></tr>' +
+  ORDER.map(p => { const t = T[p]; return `<tr><td>${PL[p]}</td><td class="num">${fmt(t.card_submits)}</td><td class="num">${fmt(t.challenged)}</td>` +
+    `<td class="num${p === 'web_mobile' ? ' hl' : ''}">${pct(t.completion_rate)}</td><td class="num">${pct(t.success_challenged)}</td><td class="num">${pct(t.success_not_challenged)}</td></tr>`; }).join('');
+
+document.getElementById('t-prio').innerHTML = "<tr><th>#</th><th>Issue</th><th>Type</th><th>Affected</th><th class='num'>Revenue impact / month</th><th>Next step</th></tr><tr><td>1</td><td>Android 5.2: payment-method list fails to load</td><td>Bug</td><td>Android 5.2 users (75% of Android checkouts since release)</td><td class='num'><b>$30.6k</b></td><td>Hotfix / roll back; alert on step conversion by app version</td></tr><tr><td>2</td><td>3-D Secure challenge abandoned on mobile web</td><td>UX / payments</td><td>Mobile-web card payments with a challenge</td><td class='num'><b>$2.1k</b></td><td>Fix challenge rendering; review exemptions for low-value payments</td></tr><tr><td>3</td><td>iOS Buy clicks without checkout</td><td>User behaviour</td><td>iOS buyers who close the price dialog</td><td class='num'><b>Not a loss</b></td><td>No fix needed; optional A/B test of the dialog</td></tr>";
+document.getElementById('sql').textContent = R.funnel_sql;
+</script>
+</body>
+</html>

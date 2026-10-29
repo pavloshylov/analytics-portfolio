@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cookie Cats A/B Test</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+    --a: #2a78d6; --b: #eb6834;
+    --good: #0ca30c; --warn: #fab219; --bad: #d03b3b; --info: #2a78d6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 16px 40px; }
+  h1 { font-size: 26px; margin: 0 0 4px; font-weight: 650; }
+  .sub { color: var(--ink-2); margin: 0 0 18px; }
+  h2 { font-size: 18px; margin: 0 0 4px; font-weight: 640; }
+  .note { color: var(--muted); font-size: 12.5px; margin: 0 0 8px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin-bottom: 16px; }
+  .verdict { border-left: 4px solid var(--ink); font-size: 15px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .kpi { margin: 0; }
+  .kpi .label { color: var(--ink-2); font-size: 13px; }
+  .kpi .value { font-size: 26px; font-weight: 650; }
+  .kpi.a { border-top: 3px solid var(--a); } .kpi.b { border-top: 3px solid var(--b); }
+  .row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 860px) { .row2 { grid-template-columns: 1fr; } }
+  .chart { width: 100%; height: 300px; }
+  .info { background: #eef4fc; border-left: 4px solid var(--info); border-radius: 6px; padding: 10px 14px; margin-top: 10px; color: var(--ink); }
+  .info.warn { background: #fff6e0; border-left-color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--grid); }
+  th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
+  td.num, th.num { text-align: right; }
+  .sig { font-weight: 600; } .sig.yes { color: #006300; } .sig.no { color: var(--ink-2); }
+  .concl-list { list-style: none; padding: 0; margin: 8px 0 0; }
+  .concl-list li { display: flex; gap: 10px; padding: 9px 12px; margin: 6px 0; border-left: 4px solid; background: #fff; border-radius: 4px; }
+  .concl-list .ic { font-weight: 700; width: 14px; flex: none; }
+  .c-neg { border-color: var(--bad) !important; } .c-neg .ic { color: var(--bad); }
+  .c-warn { border-color: var(--warn) !important; } .c-warn .ic { color: #a36f00; }
+  .c-good { border-color: var(--good) !important; } .c-good .ic { color: var(--good); }
+  .c-info { border-color: var(--info) !important; } .c-info .ic { color: var(--info); }
+  .reco { background: #ecf7ec; border-left: 4px solid var(--good); border-radius: 6px; padding: 10px 14px; margin-top: 12px; }
+  .reco ul { margin: 6px 0 0; padding-left: 20px; } .reco li { margin: 5px 0; }
+  footer { color: var(--ink-2); font-size: 12.5px; } footer p { margin: 6px 0; } footer a { color: var(--a); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Cookie Cats — Moving the First Gate</h1>
+  <p class="sub">A/B test in a mobile puzzle game · Group A: gate at level 30 · Group B: gate at level 40 · 90,189 new players</p>
+
+  <div class="card verdict"><b>Keep the first gate at level 30.</b> Moving it to level 40 did not improve retention: 7-day retention is −0.82 pp for Group B (95% CI −1.33 to −0.31 pp). But the test has a sample-ratio mismatch (p = 0.009) and, once it is accounted for, the real effect is smaller and less certain than the headline suggests.</div>
+
+  <section class="kpis" id="kpis"></section>
+
+  <div class="card">
+    <h2>Retention</h2>
+    <p class="note">Share of players who came back 1 and 7 days after install</p>
+    <div class="chart" id="c-ret"></div>
+    <table id="t-ret"></table>
+  </div>
+
+  <div class="row2">
+    <div class="card">
+      <h2>Sample Ratio</h2>
+      <p class="note">Players per group: under 30 rounds (never reached level 30) vs 30+ rounds (could reach it)</p>
+      <div class="chart" id="c-srm"></div>
+      <div class="info warn">Groups should be 50/50, but Group B received 789 more players (p = 0.009). The imbalance comes <b>entirely from players who never reached level 30</b> (+832 in Group B, p = 0.0005), while players with 30+ rounds are balanced (43 players apart, p = 0.81). For players who never reach level 30 the game is identical in both groups, so the gate cannot explain this — it points to an assignment or logging issue that adds low-engagement players to Group B and mechanically lowers its average retention.</div>
+    </div>
+    <div class="card">
+      <h2>Who Saw the Gate</h2>
+      <p class="note">Share of players by game rounds played in the first 14 days</p>
+      <div class="chart" id="c-rounds"></div>
+      <div class="info">63.1% of players played fewer than 30 rounds in their first 14 days, so they never reached level 30 and never saw either gate. Including them dilutes the effect (intent-to-treat). For them the two groups should be identical — a built-in placebo check. Every level takes at least one round, and the game is the same in both groups until level 30, so this split is not biased by the treatment itself.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Effect by Segment</h2>
+    <p class="note">Group B − Group A, 7-day retention, percentage points with 95% bootstrap confidence intervals</p>
+    <div class="chart" id="c-forest" style="height:250px"></div>
+    <table id="t-seg"></table>
+    <div class="info warn">Placebo: among players who never reached the gate, Group B still shows 7-day retention −0.33 pp (95% CI −0.65 to −0.01 pp). It should be zero — another sign the groups are not fully comparable.</div>
+    <div class="info">Among players who could reach the gate, the test could reliably detect (80% power) only D7 differences of 1.5 pp or more; the observed difference is 0.87 pp. To confirm an effect of that size you would need about 275k players in total — 3.0× this test.</div>
+  </div>
+
+  <div class="card">
+    <h2>Conclusions</h2>
+    <ul class="concl-list">
+<li class="c-neg"><span class="ic">✗</span><span>Moving the gate to level 40 did not improve retention. Day-1 retention: 44.8% vs 44.2% (not significant); day-7: 19.0% vs 18.2%.</span></li>
+<li class="c-warn"><span class="ic">⚠</span><span>Sample-ratio mismatch (p = 0.009): Group B got 832 extra players who never reached level 30. The headline D7 gap of −0.82 pp shrinks to −0.53 pp after adjusting for group composition.</span></li>
+<li class="c-warn"><span class="ic">⚠</span><span>Placebo check fails at the margin: players who never saw a gate differ by −0.33 pp on D7. Part of the remaining gap is likely not caused by the gate.</span></li>
+<li class="c-info"><span class="ic">–</span><span>Among players who could reach the gate (36.9% of players), the D7 difference is −0.87 pp (95% CI −1.93 to +0.18 pp), probability that Group B is better 5%. Day-1 retention is unchanged (+0.09 pp).</span></li>
+<li class="c-info"><span class="ic">–</span><span>Group B players with 30+ rounds played slightly more rounds (median 75 vs 72) — expected, since they get 10 more levels before the gate.</span></li>
+    </ul>
+    <div class="reco"><b>Recommendations</b><ul><li><b>Keep the gate at level 30</b> — there is no evidence that level 40 helps, and the data leans towards it hurting 7-day retention.</li><li><b>Audit the assignment before trusting the size of the effect:</b> check how players were bucketed, bot/duplicate installs and event logging for low-activity players in Group B.</li><li>If the decision is worth it, <b>re-run with fixed assignment</b> and plan the sample for the effect size that matters (about 275k players to detect a 0.9 pp D7 change among exposed players).</li></ul></div>
+  </div>
+
+  <footer>
+    <p><b>Method.</b> Retention differences: bootstrap (10,000 resamples) 95% CIs, two-proportion z-test p-values, Bayesian probability
+      that Group B is better (Beta(1,1) prior). Game rounds: winsorized at the pooled 99th percentile (one player logged ~50k rounds) and
+      Mann-Whitney test. Sample ratio: χ² test against a 50/50 split. Composition-adjusted estimate: within-segment differences weighted by
+      the pooled segment shares. Power: two-proportion normal approximation, α = 0.05, 80% power.</p>
+    <p><b>Data.</b> "Mobile Games: A/B Testing" (Cookie Cats), public educational dataset originally from a DataCamp project,
+      published on <a href="https://www.kaggle.com/datasets/yufengsui/mobile-games-ab-testing">Kaggle</a>. Used for demonstration only.</p>
+  </footer>
+</div>
+
+<script>
+const R = {"n_total": 90189, "n": {"B": 45489, "A": 44700}, "srm": {"chi2": 6.9024049496058275, "p": 0.008607987810836262, "share_A": 0.49562585237667567}, "rounds_cap_p99": 493.0, "rounds_max": 49854, "segments": {"all": {"n": {"B": 45489, "A": 44700}, "share_of_players": 1.0, "d1": {"A": 0.4481879194630872, "B": 0.44228274967574577, "nA": 44700, "nB": 45489, "diff": -0.005905169787341458, "ci": [-0.012522724794739776, 0.0005629593908756432], "p_b_better": 0.037205, "p_value": 0.07440965529691913, "boot_hist": {"counts": [1, 1, 0, 1, 0, 2, 10, 11, 21, 26, 43, 95, 149, 187, 284, 335, 434, 579, 688, 744, 830, 765, 821, 783, 716, 617, 519, 403, 295, 233, 160, 96, 68, 38, 25, 7, 4, 6, 1, 2], "edges": [-0.021115593842954306, -0.020415724186435825, -0.019715854529917344, -0.019015984873398867, -0.018316115216880386, -0.017616245560361905, -0.016916375903843425, -0.016216506247324944, -0.015516636590806465, -0.014816766934287986, -0.014116897277769505, -0.013417027621251024, -0.012717157964732544, -0.012017288308214065, -0.011317418651695584, -0.010617548995177105, -0.009917679338658624, -0.009217809682140143, -0.008517940025621664, -0.007818070369103184, -0.007118200712584705, -0.006418331056066224, -0.005718461399547743, -0.0050185917430292624, -0.004318722086510782, -0.0036188524299923044, -0.0029189827734738237, -0.002219113116955343, -0.0015192434604368622, -0.0008193738039183815, -0.00011950414739990423, 0.0005803655091185765, 0.0012802351656370572, 0.001980104822155538, 0.0026799744786740187, 0.003379844135192496, 0.004079713791710977, 0.0047795834482294575, 0.005479453104747938, 0.006179322761266419, 0.006879192417784896]}}, "d7": {"A": 0.19020134228187918, "B": 0.18200004396667327, "nA": 44700, "nB": 45489, "diff": -0.008201298315205913, "ci": [-0.013298215026835172, -0.003099335321276153], "p_b_better": 0.00077, "p_value": 0.001554249975614329, "boot_hist": {"counts": [2, 4, 3, 6, 12, 10, 26, 44, 48, 93, 144, 169, 242, 293, 390, 483, 551, 638, 640, 729, 747, 744, 644, 677, 577, 504, 397, 358, 242, 179, 138, 89, 63, 45, 27, 23, 14, 2, 0, 3], "edges": [-0.018124080738746357, -0.01764184275835697, -0.017159604777967578, -0.01667736679757819, -0.0161951288171888, -0.01571289083679941, -0.015230652856410022, -0.014748414876020632, -0.014266176895631245, -0.013783938915241854, -0.013301700934852466, -0.012819462954463077, -0.012337224974073687, -0.0118549869936843, -0.011372749013294908, -0.01089051103290552, -0.010408273052516131, -0.009926035072126742, -0.009443797091737352, -0.008961559111347965, -0.008479321130958575, -0.007997083150569186, -0.0075148451701797965, -0.007032607189790407, -0.006550369209401018, -0.00606813122901163, -0.005585893248622241, -0.005103655268232851, -0.004621417287843462, -0.004139179307454072, -0.0036569413270646847, -0.0031747033466752953, -0.002692465366285906, -0.0022102273858965182, -0.001727989405507127, -0.0012457514251177394, -0.0007635134447283483, -0.0002812754643389606, 0.00020096251605042706, 0.0006832004964398182, 0.0011654384768292059]}}, "rounds": {"A_mean_w": 49.13583892617449, "B_mean_w": 48.853920728088106, "A_mean_raw": 52.45626398210291, "B_mean_raw": 51.29877552814966, "A_median": 17.0, "B_median": 16.0, "diff_w": -0.2819181980863874, "ci_w": [-1.3696367195712618, 0.8127705154694019], "p_mannwhitney": 0.05020880772044255}, "srm_p": 0.008607987810836262, "reach_share": null, "mde_d1": 0.00931946000194625, "mde_d7": 0.007354622543033183}, "reached_30": {"n": {"A": 16656, "B": 16613}, "share_of_players": 0.3688809056536828, "d1": {"A": 0.8009726224783862, "B": 0.8018419310178776, "nA": 16656, "nB": 16613, "diff": 0.0008693085394914091, "ci": [-0.0076738724232374034, 0.009296758599433736], "p_b_better": 0.579735, "p_value": 0.842477084051657, "boot_hist": {"counts": [1, 0, 0, 0, 1, 0, 0, 2, 3, 7, 8, 24, 39, 74, 120, 185, 261, 350, 464, 573, 702, 836, 872, 913, 860, 785, 690, 613, 510, 361, 253, 181, 122, 76, 48, 31, 14, 10, 8, 3], "edges": [-0.021976061910707, -0.021011019405396094, -0.020045976900085187, -0.019080934394774283, -0.018115891889463377, -0.01715084938415247, -0.016185806878841563, -0.015220764373530656, -0.01425572186821975, -0.013290679362908843, -0.012325636857597938, -0.011360594352287031, -0.010395551846976124, -0.009430509341665219, -0.008465466836354312, -0.0075004243310434066, -0.0065353818257325, -0.005570339320421593, -0.004605296815110686, -0.003640254309799782, -0.002675211804488875, -0.001710169299177968, -0.0007451267938670611, 0.0002199157114438459, 0.0011849582167547529, 0.0021500007220656564, 0.0031150432273765634, 0.00408008573268747, 0.005045128237998377, 0.006010170743309284, 0.006975213248620188, 0.007940255753931095, 0.008905298259242002, 0.009870340764552905, 0.010835383269863816, 0.01180042577517472, 0.01276546828048563, 0.013730510785796533, 0.014695553291107437, 0.015660595796418347, 0.01662563830172925]}}, "d7": {"A": 0.4387608069164265, "B": 0.4300246794678866, "nA": 16656, "nB": 16613, "diff": -0.00873612744853991, "ci": [-0.019253978357862772, 0.0017861445771811687], "p_b_better": 0.054275, "p_value": 0.10797874787534656, "boot_hist": {"counts": [3, 3, 4, 4, 15, 27, 33, 54, 96, 146, 271, 326, 406, 551, 645, 736, 782, 847, 860, 832, 707, 700, 553, 423, 342, 229, 147, 101, 71, 41, 22, 11, 5, 2, 2, 2, 0, 0, 0, 1], "edges": [-0.02996014963571747, -0.028786465834974177, -0.027612782034230888, -0.026439098233487595, -0.025265414432744306, -0.024091730632001013, -0.02291804683125772, -0.021744363030514427, -0.020570679229771138, -0.019396995429027848, -0.018223311628284555, -0.017049627827541262, -0.01587594402679797, -0.01470226022605468, -0.013528576425311387, -0.012354892624568098, -0.011181208823824805, -0.010007525023081512, -0.008833841222338223, -0.00766015742159493, -0.0064864736208516405, -0.005312789820108348, -0.004139106019365055, -0.0029654222186217653, -0.0017917384178784725, -0.0006180546171351796, 0.0005556291836081098, 0.0017293129843514027, 0.0029029967850946956, 0.004076680585837988, 0.005250364386581274, 0.006424048187324567, 0.00759773198806786, 0.008771415788811153, 0.009945099589554446, 0.011118783390297732, 0.012292467191041025, 0.013466150991784318, 0.01463983479252761, 0.015813518593270903, 0.01698720239401419]}}, "rounds": {"A_mean_w": 116.16738712776177, "B_mean_w": 117.77210618190574, "A_mean_raw": 125.0784702209414, "B_mean_raw": 124.46650213688076, "A_median": 72.0, "B_median": 75.0, "diff_w": 1.6047190541439704, "ci_w": [-0.7415034283230664, 3.995741135158379], "p_mannwhitney": 0.00010828431071685667}, "srm_p": 0.8136279828139132, "reach_share": null, "mde_d1": 0.012273263231712576, "mde_d7": 0.01525396380772446}, "below_30": {"n": {"B": 28876, "A": 28044}, "share_of_players": 0.6311190943463172, "d1": {"A": 0.23866067608044503, "B": 0.23542041834049038, "nA": 28044, "nB": 28876, "diff": -0.0032402577399546495, "ci": [-0.010353288558147856, 0.003729413472494458], "p_b_better": 0.18216, "p_value": 0.3634333964640146, "boot_hist": {"counts": [2, 3, 0, 4, 11, 27, 30, 47, 92, 112, 151, 185, 261, 327, 420, 458, 574, 631, 672, 685, 663, 696, 674, 595, 556, 496, 403, 309, 267, 205, 144, 115, 81, 44, 24, 14, 9, 9, 3, 1], "edges": [-0.016339411941447002, -0.015700500444466095, -0.015061588947485185, -0.014422677450504278, -0.01378376595352337, -0.013144854456542461, -0.012505942959561553, -0.011867031462580644, -0.011228119965599737, -0.010589208468618827, -0.00995029697163792, -0.009311385474657012, -0.008672473977676103, -0.008033562480695195, -0.007394650983714288, -0.0067557394867333795, -0.006116827989752471, -0.0054779164927715625, -0.004839004995790654, -0.004200093498809747, -0.0035611820018288387, -0.00292227050484793, -0.0022833590078670217, -0.0016444475108861132, -0.0010055360139052047, -0.00036662451692429793, 0.0002722869800566123, 0.0009111984770375191, 0.0015501099740184258, 0.002189021470999336, 0.002827932967980243, 0.003466844464961153, 0.00410575596194206, 0.004744667458922967, 0.005383578955903877, 0.006022490452884784, 0.006661401949865694, 0.007300313446846601, 0.007939224943827507, 0.008578136440808418, 0.009217047937789324]}}, "d7": {"A": 0.042575952075310224, "B": 0.039305998060673225, "nA": 28044, "nB": 28876, "diff": -0.0032699540146369985, "ci": [-0.006520200535208668, -6.294664318388552e-05], "p_b_better": 0.02455, "p_value": 0.04896787766058105, "boot_hist": {"counts": [1, 3, 4, 7, 7, 19, 24, 49, 67, 101, 158, 210, 277, 356, 415, 514, 557, 687, 734, 757, 730, 730, 651, 624, 523, 452, 341, 269, 248, 176, 108, 71, 57, 26, 26, 12, 3, 5, 0, 1], "edges": [-0.009557532620112982, -0.009245278045350497, -0.008933023470588011, -0.008620768895825526, -0.00830851432106304, -0.007996259746300555, -0.007684005171538069, -0.007371750596775584, -0.007059496022013098, -0.006747241447250613, -0.006434986872488127, -0.0061227322977256415, -0.005810477722963156, -0.0054982231482006705, -0.005185968573438185, -0.004873713998675699, -0.004561459423913214, -0.004249204849150728, -0.003936950274388243, -0.0036246956996257573, -0.003312441124863272, -0.0030001865501007863, -0.0026879319753383007, -0.0023756774005758152, -0.0020634228258133297, -0.0017511682510508442, -0.0014389136762883586, -0.0011266591015258731, -0.0008144045267633876, -0.0005021499520009021, -0.00018989537723841654, 0.00012235919752406899, 0.0004346137722865545, 0.00074686834704904, 0.0010591229218115256, 0.001371377496574011, 0.0016836320713364966, 0.001995886646098982, 0.0023081412208614677, 0.002620395795623953, 0.0029326503703864387]}}, "rounds": {"A_mean_w": 9.324204820995579, "B_mean_w": 9.203767834880177, "A_mean_raw": 9.324204820995579, "B_mean_raw": 9.203767834880177, "A_median": 7.0, "B_median": 7.0, "diff_w": -0.12043698611540243, "ci_w": [-0.2502013798384898, 0.0108875054979099], "p_mannwhitney": 0.0728013178603117}, "srm_p": 0.00048790069319671074, "reach_share": null}}, "reach_share_A": 0.37261744966442956, "reach_share_B": 0.3652091714480424, "stratified": {"d1": {"diff": -0.0017243172089487517, "ci": [-0.007568239899477534, 0.003940480646077158]}, "d7": {"diff": -0.005286321021395206, "ci": [-0.009471899227564202, -0.0010161938481407513]}}, "rounds_dist": {"labels": ["0", "1\u20134", "5\u20139", "10\u201319", "20\u201329", "30\u201339", "40\u201349", "50\u201399", "100\u2013199", "200\u2013499", "500+"], "A": [0.043333333333333335, 0.19411633109619686, 0.13917225950782997, 0.1594854586129754, 0.0912751677852349, 0.0691275167785235, 0.050044742729306486, 0.1154586129753915, 0.07917225950782998, 0.04923937360178971, 0.009574944071588367], "B": [0.04521972344962518, 0.19903712985556948, 0.13829717074457562, 0.16274264107806283, 0.08949416342412451, 0.06124557585350304, 0.043768823231990155, 0.12064455143001605, 0.08144826221723933, 0.048605157290773596, 0.009496801424520213]}};
+const C = { a: '#2a78d6', b: '#eb6834', ink: '#0b0b0b', ink2: '#52514e', muted: '#898781', grid: '#e1e0d9', axis: '#c3c2b7', surface: '#fcfcfb' };
+const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+const pct = (v, d = 1) => (v * 100).toFixed(d) + '%';
+const pp = v => (v >= 0 ? '+' : '−') + Math.abs(v * 100).toFixed(2) + ' pp';
+const ciTxt = c => `${pp(c[0])} to ${pp(c[1])}`;
+const S = R.segments;
+
+const base = {
+  textStyle: { fontFamily: FONT, color: C.ink2 },
+  tooltip: { backgroundColor: '#fff', borderColor: C.axis, textStyle: { color: C.ink, fontFamily: FONT } },
+  legend: { top: 0, left: 0, icon: 'roundRect', itemWidth: 12, itemHeight: 8, textStyle: { color: C.ink2 } },
+};
+const cat = x => Object.assign({ type: 'category', axisLine: { lineStyle: { color: C.axis } }, axisTick: { show: false }, axisLabel: { color: C.ink2 } }, x);
+const val = x => Object.assign({ type: 'value', min: 0, splitLine: { lineStyle: { color: C.grid } }, axisLabel: { color: C.muted } }, x);
+const mk = id => { const c = echarts.init(document.getElementById(id), null, { renderer: 'svg' }); addEventListener('resize', () => c.resize()); return c; };
+const barA = { color: C.a, borderRadius: [4, 4, 0, 0] }, barB = { color: C.b, borderRadius: [4, 4, 0, 0] };
+
+// KPI cards
+const al = S.all;
+document.getElementById('kpis').innerHTML = [
+  ['a', 'Group A - Players', R.n.A.toLocaleString('en-US')], ['b', 'Group B - Players', R.n.B.toLocaleString('en-US')],
+  ['a', 'Group A - D1 retention', pct(al.d1.A)], ['b', 'Group B - D1 retention', pct(al.d1.B)],
+  ['a', 'Group A - D7 retention', pct(al.d7.A)], ['b', 'Group B - D7 retention', pct(al.d7.B)],
+].map(([g, l, v]) => `<div class="card kpi ${g}"><div class="label">${l}</div><div class="value">${v}</div></div>`).join('');
+
+// Retention chart + table
+mk('c-ret').setOption(Object.assign({}, base, {
+  grid: { left: 48, right: 16, top: 36, bottom: 28 },
+  tooltip: Object.assign({}, base.tooltip, { trigger: 'axis', axisPointer: { type: 'shadow' }, valueFormatter: v => pct(v) }),
+  xAxis: cat({ data: ['Day 1', 'Day 7'] }),
+  yAxis: val({ max: 0.5, axisLabel: { color: C.muted, formatter: v => pct(v, 0) } }),
+  series: [
+    { name: 'Group A', type: 'bar', data: [al.d1.A, al.d7.A], itemStyle: barA, barMaxWidth: 56,
+      label: { show: true, position: 'top', color: C.ink2, formatter: q => pct(q.value) } },
+    { name: 'Group B', type: 'bar', data: [al.d1.B, al.d7.B], itemStyle: barB, barMaxWidth: 56,
+      label: { show: true, position: 'top', color: C.ink2, formatter: q => pct(q.value) } },
+  ],
+}));
+const sig = p => p < 0.05 ? '<span class="sig yes">Significant</span>' : '<span class="sig no">Not significant</span>';
+document.getElementById('t-ret').innerHTML =
+  '<tr><th>Day</th><th class="num">Group A</th><th class="num">Group B</th><th class="num">Difference (95% CI)</th><th class="num">P(B better)</th><th>Significance</th></tr>' +
+  [['Day 1', al.d1], ['Day 7', al.d7]].map(([d, m]) =>
+    `<tr><td>${d}</td><td class="num">${pct(m.A, 2)}</td><td class="num">${pct(m.B, 2)}</td><td class="num">${pp(m.diff)} (${ciTxt(m.ci)})</td>` +
+    `<td class="num">${pct(m.p_b_better)}</td><td>${sig(m.p_value)} <span class="note">p = ${m.p_value.toFixed(3)}</span></td></tr>`).join('');
+
+// SRM chart
+mk('c-srm').setOption(Object.assign({}, base, {
+  grid: { left: 56, right: 16, top: 36, bottom: 28 },
+  tooltip: Object.assign({}, base.tooltip, { trigger: 'axis', axisPointer: { type: 'shadow' }, valueFormatter: v => v.toLocaleString('en-US') + ' players' }),
+  xAxis: cat({ data: ['Under 30 rounds', '30+ rounds'] }),
+  yAxis: val({ axisLabel: { color: C.muted, formatter: v => (v / 1000) + 'k' } }),
+  series: [
+    { name: 'Group A', type: 'bar', data: [S.below_30.n.A, S.reached_30.n.A], itemStyle: barA, barMaxWidth: 56,
+      label: { show: true, position: 'top', color: C.ink2, formatter: q => q.value.toLocaleString('en-US') } },
+    { name: 'Group B', type: 'bar', data: [S.below_30.n.B, S.reached_30.n.B], itemStyle: barB, barMaxWidth: 56,
+      label: { show: true, position: 'top', color: C.ink2, formatter: q => q.value.toLocaleString('en-US') } },
+  ],
+}));
+
+// Rounds distribution
+const rd = R.rounds_dist;
+mk('c-rounds').setOption(Object.assign({}, base, {
+  grid: { left: 48, right: 16, top: 36, bottom: 48 },
+  tooltip: Object.assign({}, base.tooltip, { trigger: 'axis', axisPointer: { type: 'shadow' }, valueFormatter: v => pct(v) }),
+  xAxis: cat({ data: rd.labels, name: 'Game rounds', nameLocation: 'middle', nameGap: 30, nameTextStyle: { color: C.ink2 }, axisLabel: { color: C.muted, fontSize: 11 } }),
+  yAxis: val({ max: 0.25, interval: 0.05, axisLabel: { color: C.muted, formatter: v => pct(v, 0) } }),
+  series: [
+    { name: 'Group A', type: 'bar', data: rd.A, itemStyle: { color: C.a, borderRadius: [3, 3, 0, 0] },
+      markArea: { silent: true, itemStyle: { color: 'rgba(137,135,129,0.10)' }, label: { color: C.ink2, position: 'insideTop', fontSize: 11 },
+        data: [[{ name: 'Never reached level 30', xAxis: '0' }, { xAxis: '20–29' }]] } },
+    { name: 'Group B', type: 'bar', data: rd.B, itemStyle: { color: C.b, borderRadius: [3, 3, 0, 0] } },
+  ],
+}));
+
+// Forest plot: D7 difference by segment
+const rows = [
+  ['All players (headline)', S.all.d7.diff, S.all.d7.ci],
+  ['Adjusted for group composition', R.stratified.d7.diff, R.stratified.d7.ci],
+  ['30+ rounds (could reach gate)', S.reached_30.d7.diff, S.reached_30.d7.ci],
+  ['Under 30 rounds (placebo)', S.below_30.d7.diff, S.below_30.d7.ci],
+];
+// symmetric axis rounded up to the next 0.5 pp so tick labels stay clean
+const lim = Math.ceil(Math.max(...rows.map(r => Math.max(Math.abs(r[2][0]), Math.abs(r[2][1])))) * 200) / 200;
+mk('c-forest').setOption(Object.assign({}, base, {
+  grid: { left: 210, right: 24, top: 10, bottom: 30 },
+  tooltip: Object.assign({}, base.tooltip, { formatter: q => `${q.name}<br><b>${pp(q.value[1])}</b> (${ciTxt([q.value[2], q.value[3]])})` }),
+  xAxis: { type: 'value', min: -lim, max: lim, interval: 0.005, splitLine: { lineStyle: { color: C.grid } },
+    axisLabel: { color: C.muted, formatter: v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v * 100).toFixed(1) + ' pp' } },
+  yAxis: cat({ data: rows.map(r => r[0]), inverse: true }),
+  series: [{
+    type: 'custom', data: rows.map((r, i) => ({ name: r[0], value: [i, r[1], r[2][0], r[2][1]] })),
+    renderItem: (params, api) => {
+      const y = api.coord([0, api.value(0)])[1];
+      const lo = api.coord([api.value(2), 0])[0], hi = api.coord([api.value(3), 0])[0], x = api.coord([api.value(1), 0])[0];
+      const col = api.value(0) === 3 ? C.muted : C.ink;
+      return { type: 'group', children: [
+        { type: 'line', shape: { x1: lo, y1: y, x2: hi, y2: y }, style: { stroke: col, lineWidth: 2 } },
+        { type: 'line', shape: { x1: lo, y1: y - 6, x2: lo, y2: y + 6 }, style: { stroke: col, lineWidth: 2 } },
+        { type: 'line', shape: { x1: hi, y1: y - 6, x2: hi, y2: y + 6 }, style: { stroke: col, lineWidth: 2 } },
+        { type: 'circle', shape: { cx: x, cy: y, r: 6 }, style: { fill: C.b, stroke: C.surface, lineWidth: 2 } },
+      ] };
+    },
+    markLine: { silent: true, symbol: 'none', lineStyle: { color: C.axis, type: 'solid', width: 1.5 }, label: { show: false }, data: [{ xAxis: 0 }] },
+  }],
+}));
+const segRows = [['All players (headline)', S.all], ['30+ rounds (could reach gate)', S.reached_30], ['Under 30 rounds (placebo)', S.below_30]];
+document.getElementById('t-seg').innerHTML =
+  '<tr><th>Segment</th><th class="num">Players</th><th class="num">D1 difference (95% CI)</th><th class="num">D7 difference (95% CI)</th><th class="num">P(B better), D7</th></tr>' +
+  segRows.map(([n, s]) => `<tr><td>${n}</td><td class="num">${(s.n.A + s.n.B).toLocaleString('en-US')}</td>` +
+    `<td class="num">${pp(s.d1.diff)} (${ciTxt(s.d1.ci)})</td><td class="num">${pp(s.d7.diff)} (${ciTxt(s.d7.ci)})</td><td class="num">${pct(s.d7.p_b_better)}</td></tr>`).join('') +
+  `<tr><td>Adjusted for group composition</td><td class="num">${R.n_total.toLocaleString('en-US')}</td><td class="num">${pp(R.stratified.d1.diff)} (${ciTxt(R.stratified.d1.ci)})</td>` +
+  `<td class="num">${pp(R.stratified.d7.diff)} (${ciTxt(R.stratified.d7.ci)})</td><td class="num">—</td></tr>`;
+</script>
+</body>
+</html>

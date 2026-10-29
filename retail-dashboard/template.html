@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Online Retail Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface: #fcfcfb;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --s1: #2a78d6;
+    --s2: #eb6834;
+    --s3: #1baf7a;
+    --up: #006300;
+    --down: #d03b3b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+         font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 28px 16px 40px; }
+  header { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; justify-content: space-between; margin-bottom: 20px; }
+  h1 { font-size: 24px; margin: 0 0 4px; font-weight: 650; }
+  .sub { color: var(--ink-2); margin: 0; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
+  .seg button { border: 0; background: transparent; padding: 8px 14px; font: inherit; color: var(--ink-2); cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .kpi .label { color: var(--ink-2); font-size: 13px; }
+  .kpi .value { font-size: 26px; font-weight: 650; margin: 2px 0; }
+  .kpi .delta { font-size: 13px; color: var(--ink-2); }
+  .kpi .delta b { font-weight: 600; }
+  .kpi .delta .up { color: var(--up); }
+  .kpi .delta .down { color: var(--down); }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  .card h2 { font-size: 15px; margin: 0 0 2px; font-weight: 620; }
+  .card .note { color: var(--muted); font-size: 12.5px; margin: 0 0 6px; }
+  .chart { width: 100%; height: 320px; }
+  .chart.tall { height: 420px; }
+  .findings { margin-top: 16px; }
+  .findings ul { margin: 6px 0 0; padding-left: 20px; }
+  .findings li { margin: 6px 0; }
+  footer { margin-top: 16px; color: var(--ink-2); font-size: 12.5px; }
+  footer p { margin: 6px 0; }
+  footer a { color: var(--s1); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Online Retail — Revenue &amp; Customer Dashboard</h1>
+      <p class="sub">UK online gift &amp; homeware retailer · last 12 months (Dec 2010 – Nov 2011) vs prior 12 months</p>
+    </div>
+    <div class="seg" role="group" aria-label="Market">
+      <button data-seg="all" aria-pressed="true">All markets</button>
+      <button data-seg="uk" aria-pressed="false">United Kingdom</button>
+      <button data-seg="intl" aria-pressed="false">International</button>
+    </div>
+  </header>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section class="grid">
+    <div class="card">
+      <h2>Monthly revenue, year over year</h2>
+      <p class="note">Same months, current vs previous year</p>
+      <div class="chart" id="c-yoy"></div>
+    </div>
+    <div class="card">
+      <h2>Revenue by customer type</h2>
+      <p class="note">Returning = bought in an earlier month · Guest = no customer ID</p>
+      <div class="chart" id="c-ctype"></div>
+    </div>
+    <div class="card">
+      <h2>Customer retention by first-purchase cohort</h2>
+      <p class="note">Share of each monthly cohort buying again N months later</p>
+      <div class="chart tall" id="c-cohort"></div>
+    </div>
+    <div class="card">
+      <h2>International revenue by country</h2>
+      <p class="note">Top 10 markets outside the UK, last 12 months</p>
+      <div class="chart tall" id="c-country"></div>
+    </div>
+  </section>
+
+  <section class="card findings">
+    <h2>Key findings (all markets)</h2>
+    <ul>
+<!--__INSIGHTS__-->
+    </ul>
+  </section>
+
+  <footer>
+    <p><b>Data &amp; method.</b> 1.07M invoice lines, Dec 2009 – Dec 2011. Removed: exact duplicate rows (the source sheets overlap),
+      cancellations and bad-debt adjustments, non-product lines (postage, fees, manual adjustments, gift cards), zero/negative quantities and prices,
+      and the partial month Dec 2011. Revenue = quantity × unit price (GBP). Customer metrics use lines with a customer ID.
+      Cohorts start Jan 2010 — customers first seen in Dec 2009 may have bought before the data begins.</p>
+    <p><b>Source.</b> Chen, D. (2012). Online Retail II [Dataset]. UCI Machine Learning Repository.
+      <a href="https://doi.org/10.24432/C5CG6D">https://doi.org/10.24432/C5CG6D</a> · licensed under
+      <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>.</p>
+  </footer>
+</div>
+
+<script>
+const DATA = /*__DATA__*/null;
+const C = { ink: '#0b0b0b', ink2: '#52514e', muted: '#898781', grid: '#e1e0d9', axis: '#c3c2b7',
+            surface: '#fcfcfb', s1: '#2a78d6', s2: '#eb6834', s3: '#1baf7a', prev: '#b5b3ab' };
+const SEQ = ['#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#184f95', '#0d366b'];
+const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+
+const gbp = v => v >= 1e6 ? '£' + (v / 1e6).toFixed(2) + 'M' : v >= 1e3 ? '£' + Math.round(v / 1e3) + 'k' : '£' + Math.round(v);
+const pct = v => (v * 100).toFixed(0) + '%';
+const monthLabel = s => { const [y, mo] = s.split('-'); return new Date(+y, +mo - 1, 1).toLocaleString('en-US', { month: 'short', year: 'numeric' }); };
+
+const base = {
+  textStyle: { fontFamily: FONT, color: C.ink2 },
+  grid: { left: 56, right: 16, top: 36, bottom: 32 },
+  tooltip: { backgroundColor: '#fff', borderColor: C.axis, textStyle: { color: C.ink, fontFamily: FONT } },
+};
+const axisCat = extra => Object.assign({ type: 'category', axisLine: { lineStyle: { color: C.axis } }, axisTick: { show: false },
+  axisLabel: { color: C.muted } }, extra);
+const axisVal = extra => Object.assign({ type: 'value', min: 0, splitLine: { lineStyle: { color: C.grid } },
+  axisLabel: { color: C.muted, formatter: gbp } }, extra);
+const legend = { top: 0, left: 0, icon: 'roundRect', itemWidth: 12, itemHeight: 8, textStyle: { color: C.ink2 } };
+
+const charts = {};
+['c-yoy', 'c-ctype', 'c-cohort', 'c-country'].forEach(id => charts[id] = echarts.init(document.getElementById(id), null, { renderer: 'svg' }));
+window.addEventListener('resize', () => Object.values(charts).forEach(c => c.resize()));
+
+// delta: number; unit: '%' or ' pp'; neutral: no good/bad colouring (arrow + sign still shown)
+function kpiTile(label, value, delta, unit, neutral) {
+  const up = delta >= 0;
+  const cls = neutral ? '' : (up ? 'up' : 'down');
+  const txt = `${up ? '▲ +' : '▼ −'}${Math.abs(delta).toFixed(1)}${unit}`;
+  return `<div class="card kpi"><div class="label">${label}</div><div class="value">${value}</div>` +
+    `<div class="delta"><span class="${cls}"><b>${txt}</b></span> vs prior 12 mo</div></div>`;
+}
+
+function render(seg) {
+  const s = DATA.segments[seg], l = s.kpi.l12, p = s.kpi.p12;
+  const rel = k => (l[k] / p[k] - 1) * 100;
+  const pp = k => (l[k] - p[k]) * 100;
+  document.getElementById('kpis').innerHTML = [
+    kpiTile('Revenue', gbp(l.revenue), rel('revenue'), '%'),
+    kpiTile('Orders', l.orders.toLocaleString('en-GB'), rel('orders'), '%'),
+    kpiTile('Average order value', '£' + l.aov.toFixed(0), rel('aov'), '%'),
+    kpiTile('Identified customers', l.customers.toLocaleString('en-GB'), rel('customers'), '%'),
+    kpiTile('Repeat customers', pct(l.repeat_rate), pp('repeat_rate'), ' pp'),
+    kpiTile('Guest revenue share', pct(l.guest_share), pp('guest_share'), ' pp', true),
+  ].join('');
+
+  charts['c-yoy'].setOption(Object.assign({}, base, {
+    legend: legend,
+    tooltip: Object.assign({}, base.tooltip, { trigger: 'axis', valueFormatter: gbp }),
+    xAxis: axisCat({ data: s.yoy.labels, boundaryGap: false }),
+    yAxis: axisVal(),
+    series: [
+      { name: 'Dec 2009 – Nov 2010', type: 'line', data: s.yoy.prev, symbol: 'circle', symbolSize: 7, showSymbol: false,
+        lineStyle: { width: 2, color: C.prev, type: 'dashed' }, itemStyle: { color: C.prev } },
+      { name: 'Dec 2010 – Nov 2011', type: 'line', data: s.yoy.last, symbol: 'circle', symbolSize: 8, showSymbol: false,
+        lineStyle: { width: 2, color: C.s1 }, itemStyle: { color: C.s1 } },
+    ],
+  }), true);
+
+  const ctSeries = [['Returning', 'returning', C.s1], ['New', 'new', C.s2], ['Guest', 'guest', C.s3]].map(([n, k, col], i, arr) => ({
+    name: n, type: 'bar', stack: 'rev', data: s.ctype[k], barMaxWidth: 28,
+    itemStyle: { color: col, borderColor: C.surface, borderWidth: 1, borderRadius: i === arr.length - 1 ? [4, 4, 0, 0] : 0 },
+  }));
+  charts['c-ctype'].setOption(Object.assign({}, base, {
+    legend: legend,
+    tooltip: Object.assign({}, base.tooltip, { trigger: 'axis', axisPointer: { type: 'shadow' }, valueFormatter: gbp }),
+    xAxis: axisCat({ data: s.yoy.labels }),
+    yAxis: axisVal(),
+    series: ctSeries,
+  }), true);
+
+  const cells = s.cohorts.cells.filter(c => c[1] > 0);
+  const cohorts = s.cohorts.cohorts;
+  const sizes = Object.fromEntries(s.cohorts.cells.filter(c => c[1] === 0).map(c => [c[0], c[3]]));
+  const vmax = Math.max(...cells.map(c => c[2]));
+  charts['c-cohort'].setOption(Object.assign({}, base, {
+    grid: { left: 72, right: 16, top: 16, bottom: 64 },
+    tooltip: Object.assign({}, base.tooltip, { formatter: q => `${monthLabel(q.data[1])} cohort (${sizes[q.data[1]]} customers)<br>Month +${q.data[0]}: <b>${pct(q.data[2])}</b> bought again` }),
+    xAxis: axisCat({ data: Array.from({ length: s.cohorts.max_age }, (_, i) => String(i + 1)), name: 'Months since first purchase',
+      nameLocation: 'middle', nameGap: 26, nameTextStyle: { color: C.ink2 }, splitArea: { show: false } }),
+    yAxis: axisCat({ data: cohorts, inverse: true, axisLabel: { color: C.muted, formatter: v => monthLabel(v) } }),
+    visualMap: { min: 0, max: Math.ceil(vmax * 20) / 20, calculable: false, orient: 'horizontal', left: 'right', bottom: 0,
+      itemWidth: 10, itemHeight: 120, inRange: { color: SEQ }, text: [pct(Math.ceil(vmax * 20) / 20), '0%'], textStyle: { color: C.muted } },
+    series: [{ type: 'heatmap', data: cells.map(c => [String(c[1]), c[0], c[2]]),
+      itemStyle: { borderColor: C.surface, borderWidth: 2, borderRadius: 2 },
+      emphasis: { itemStyle: { borderColor: C.ink, borderWidth: 1 } } }],
+  }), true);
+}
+
+function renderCountries() {
+  const c = DATA.countries;
+  const names = c.names.map(n => n === 'EIRE' ? 'Ireland' : n);
+  charts['c-country'].setOption(Object.assign({}, base, {
+    grid: { left: 92, right: 56, top: 8, bottom: 24 },
+    tooltip: Object.assign({}, base.tooltip, { trigger: 'item', formatter: q => `${q.name}: <b>${gbp(q.value)}</b> (${pct(q.value / c.intl_total)} of international)` }),
+    xAxis: axisVal({ splitNumber: 4 }),
+    yAxis: axisCat({ data: names, inverse: true, axisLabel: { color: C.ink2 } }),
+    series: [{ type: 'bar', data: c.values, barMaxWidth: 20, itemStyle: { color: C.s1, borderRadius: [0, 4, 4, 0] },
+      label: { show: true, position: 'right', color: C.ink2, formatter: q => gbp(q.value) } }],
+  }), true);
+}
+
+function select(seg) {
+  document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', x.dataset.seg === seg ? 'true' : 'false'));
+  render(seg);
+}
+document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => select(b.dataset.seg)));
+// #uk / #intl in the URL opens that market directly
+select(DATA.segments[location.hash.slice(1)] ? location.hash.slice(1) : 'all');
+renderCountries();
+</script>
+</body>
+</html>

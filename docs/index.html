@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analytics Portfolio</title>
+<style>
+  :root { color-scheme: light; --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+          --border: rgba(11,11,11,0.10); --accent: #2a78d6; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 40px 16px 48px; }
+  h1 { font-size: 30px; margin: 0 0 6px; font-weight: 680; }
+  .sub { color: var(--ink-2); margin: 0 0 28px; max-width: 760px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+  .card img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: left top; border-bottom: 1px solid var(--border); display: block; }
+  .body { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  h2 { font-size: 17px; margin: 0; font-weight: 640; }
+  .tags { color: var(--muted); font-size: 12.5px; }
+  .body p { margin: 0; color: var(--ink-2); font-size: 14px; }
+  .links { margin-top: auto; padding-top: 8px; display: flex; gap: 14px; }
+  .links a { color: var(--accent); font-weight: 600; text-decoration: none; font-size: 14px; }
+  .links a:hover { text-decoration: underline; }
+  footer { margin-top: 28px; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Analytics Portfolio</h1>
+  <p class="sub">Product &amp; game analytics: A/B testing, payment funnels, monetization and retention. Each case is a full analysis
+    with a clear recommendation, built with SQL, Python and interactive charts. Public or synthetic data only.</p>
+
+  <div class="grid">
+    <div class="card">
+      <a href="ab-test/"><img src="img/ab-test.jpg" alt="A/B test report preview"></a>
+      <div class="body">
+        <h2>Mobile Game A/B Test: Finding the Flaw Behind the Headline</h2>
+        <div class="tags">A/B testing · Statistics · Python</div>
+        <p>Retention test in a mobile puzzle game (90K players). Found a sample-ratio mismatch, ran a placebo check and showed the real
+          effect is ~35% smaller than the headline.</p>
+        <div class="links"><a href="ab-test/">Open report →</a><a href="https://github.com/pavloshylov/analytics-portfolio/tree/main/ab-test-cookie-cats">Code</a></div>
+      </div>
+    </div>
+    <div class="card">
+      <a href="funnel-audit/"><img src="img/funnel-audit.jpg" alt="Funnel audit report preview"></a>
+      <div class="body">
+        <h2>Payment Funnel Audit: Bug, Behaviour or UX?</h2>
+        <div class="tags">Funnel analysis · SQL · Synthetic data</div>
+        <p>In-app store funnel across web, iOS and Android. Separated a release bug, a 3-D Secure UX issue and a gap that is user choice,
+          and sized each in revenue.</p>
+        <div class="links"><a href="funnel-audit/">Open report →</a><a href="https://github.com/pavloshylov/analytics-portfolio/tree/main/funnel-audit">Code</a></div>
+      </div>
+    </div>
+    <div class="card">
+      <a href="retail-dashboard/"><img src="img/retail-dashboard.jpg" alt="Retail dashboard preview"></a>
+      <div class="body">
+        <h2>E-commerce Revenue &amp; Customer Retention Dashboard</h2>
+        <div class="tags">Dashboard · Cohorts · Python</div>
+        <p>Interactive dashboard for a UK online retailer (1M+ transaction lines): year-over-year revenue, new vs returning customers,
+          cohort retention and international markets.</p>
+        <div class="links"><a href="retail-dashboard/">Open report →</a><a href="https://github.com/pavloshylov/analytics-portfolio/tree/main/retail-dashboard">Code</a></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>Data sources and licences are listed at the bottom of each report.</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cookie Cats A/B Test</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+    --a: #2a78d6; --b: #eb6834;
+    --good: #0ca30c; --warn: #fab219; --bad: #d03b3b; --info: #2a78d6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 16px 40px; }
+  h1 { font-size: 26px; margin: 0 0 4px; font-weight: 650; }
+  .sub { color: var(--ink-2); margin: 0 0 18px; }
+  h2 { font-size: 18px; margin: 0 0 4px; font-weight: 640; }
+  .note { color: var(--muted); font-size: 12.5px; margin: 0 0 8px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin-bottom: 16px; }
+  .verdict { border-left: 4px solid var(--ink); font-size: 15px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .kpi { margin: 0; }
+  .kpi .label { color: var(--ink-2); font-size: 13px; }
+  .kpi .value { font-size: 26px; font-weight: 650; }
+  .kpi.a { border-top: 3px solid var(--a); } .kpi.b { border-top: 3px solid var(--b); }
+  .row2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  @media (max-width: 860px) { .row2 { grid-template-columns: 1fr; } }
+  .chart { width: 100%; height: 300px; }
+  .info { background: #eef4fc; border-left: 4px solid var(--info); border-radius: 6px; padding: 10px 14px; margin-top: 10px; color: var(--ink); }
+  .info.warn { background: #fff6e0; border-left-color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--grid); }
+  th { color: var(--ink-2); font-weight: 600; font-size: 13px; }
+  td.num, th.num { text-align: right; }
+  .sig { font-weight: 600; } .sig.yes { color: #006300; } .sig.no { color: var(--ink-2); }
+  .concl-list { list-style: none; padding: 0; margin: 8px 0 0; }
+  .concl-list li { display: flex; gap: 10px; padding: 9px 12px; margin: 6px 0; border-left: 4px solid; background: #fff; border-radius: 4px; }
+  .concl-list .ic { font-weight: 700; width: 14px; flex: none; }
+  .c-neg { border-color: var(--bad) !important; } .c-neg .ic { color: var(--bad); }
+  .c-warn { border-color: var(--warn) !important; } .c-warn .ic { color: #a36f00; }
+  .c-good { border-color: var(--good) !important; } .c-good .ic { color: var(--good); }
+  .c-info { border-color: var(--info) !important; } .c-info .ic { color: var(--info); }
+  .reco { background: #ecf7ec; border-left: 4px solid var(--good); border-radius: 6px; padding: 10px 14px; margin-top: 12px; }
+  .reco ul { margin: 6px 0 0; padding-left: 20px; } .reco li { margin: 5px 0; }
+  footer { color: var(--ink-2); font-size: 12.5px; } footer p { margin: 6px 0; } footer a { color: var(--a); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Cookie Cats — Moving the First Gate</h1>
+  <p class="sub">A/B test in a mobile puzzle game · Group A: gate at level 30 · Group B: gate at level 40 · 90,189 new players</p>
+
+  <div class="card verdict"><!--verdict--></div>
+
+  <section class="kpis" id="kpis"></section>
+
+  <div class="card">
+    <h2>Retention</h2>
+    <p class="note">Share of players who came back 1 and 7 days after install</p>
+    <div class="chart" id="c-ret"></div>
+    <table id="t-ret"></table>
+  </div>
+
+  <div class="row2">
+    <div class="card">
+      <h2>Sample Ratio</h2>
+      <p class="note">Players per group: under 30 rounds (never reached level 30) vs 30+ rounds (could reach it)</p>
+      <div class="chart" id="c-srm"></div>
+      <div class="info warn"><!--srm_info--></div>
+    </div>
+    <div class="card">
+      <h2>Who Saw the Gate</h2>
+      <p class="note">Share of players by game rounds played in the first 14 days</p>
+      <div class="chart" id="c-rounds"></div>
+      <div class="info"><!--exposure_info--></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Effect by Segment</h2>
+    <p class="note">Group B − Group A, 7-day retention, percentage points with 95% bootstrap confidence intervals</p>
+    <div class="chart" id="c-forest" style="height:250px"></div>
+    <table id="t-seg"></table>
+    <div class="info warn"><!--placebo_info--></div>
+    <div class="info"><!--power_info--></div>
+  </div>
+
+  <div class="card">
+    <h2>Conclusions</h2>
+    <ul class="concl-list">
+<!--conclusions-->
+    </ul>
+    <div class="reco"><b>Recommendations</b><!--reco--></div>
+  </div>
+
+  <footer>
+    <p><b>Method.</b> Retention differences: bootstrap (10,000 resamples) 95% CIs, two-proportion z-test p-values, Bayesian probability
+      that Group B is better (Beta(1,1) prior). Game rounds: winsorized at the pooled 99th percentile (one player logged ~50k rounds) and
+      Mann-Whitney test. Sample ratio: χ² test against a 50/50 split. Composition-adjusted estimate: within-segment differences weighted by
+      the pooled segment shares. Power: two-proportion normal approximation, α = 0.05, 80% power.</p>
+    <p><b>Data.</b> "Mobile Games: A/B Testing" (Cookie Cats), public educational dataset originally from a DataCamp project,
+      published on <a href="https://www.kaggle.com/datasets/yufengsui/mobile-games-ab-testing">Kaggle</a>. Used for demonstration only.</p>
+  </footer>
+</div>
+
+<script>
+const R = /*__DATA__*/null;
+const C = { a: '#2a78d6', b: '#eb6834', ink: '#0b0b0b', ink2: '#52514e', muted: '#898781', grid: '#e1e0d9', axis: '#c3c2b7', surface: '#fcfcfb' };
+const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+const pct = (v, d = 1) => (v * 100).toFixed(d) + '%';
+const pp = v => (v >= 0 ? '+' : '−') + Math.abs(v * 100).toFixed(2) + ' pp';
+const ciTxt = c => `${pp(c[0])} to ${pp(c[1])}`;
+const S = R.segments;
+
+const base = {
+  textStyle: { fontFamily: FONT, color: C.ink2 },
+  tooltip: { backgroundColor: '#fff', borderColor: C.axis, textStyle: { color: C.ink, fontFamily: FONT } },
+  legend: { top: 0, left: 0, icon: 'roundRect', itemWidth: 12, itemHeight: 8, textStyle: { color: C.ink2 } },
+};
+const cat = x => Object.assign({ type: 'category', axisLine: { lineStyle: { color: C.axis } }, axisTick: { show: false }, axisLabel: { color: C.ink2 } }, x);
+const val = x => Object.assign({ type: 'value', min: 0, splitLine: { lineStyle: { color: C.grid } }, axisLabel: { color: C.muted } }, x);
+const mk = id => { const c = echarts.init(document.getElementById(id), null, { renderer: 'svg' }); addEventListener('resize', () => c.resize()); return c; };
+const barA = { color: C.a, borderRadius: [4, 4, 0, 0] }, barB = { color: C.b, borderRadius: [4, 4, 0, 0] };
+
+// KPI cards
+const al = S.all;
+document.getElementById('kpis').innerHTML = [
+  ['a', 'Group A - Players', R.n.A.toLocaleString('en-US')], ['b', 'Group B - Players', R.n.B.toLocaleString('en-US')],
+  ['a', 'Group A - D1 retention', pct(al.d1.A)], ['b', 'Group B - D1 retention', pct(al.d1.B)],
+  ['a', 'Group A - D7 retention', pct(al.d7.A)], ['b', 'Group B - D7 retention', pct(al.d7.B)],
+].map(([g, l, v]) => `<div class="card kpi ${g}"><div class="label">${l}</div><div class="value">${v}</div></div>`).join('');
+
+// Retention chart + table
+mk('c-ret').setOption(Object.assign({}, base, {
+  grid: { left: 48, right: 16, top: 36, bottom: 28 },
+  tooltip: Object.assign({}, base.tooltip, { trigger: 'axis', axisPointer: { type: 'shadow' }, valueFormatter: v => pct(v) }),
+  xAxis: cat({ data: ['Day 1', 'Day 7'] }),
+  yAxis: val({ max: 0.5, axisLabel: { color: C.muted, formatter: v => pct(v, 0) } }),
+  series: [
+    { name: 'Group A', type: 'bar', data: [al.d1.A, al.d7.A], itemStyle: barA, barMaxWidth: 56,
+      label: { show: true, position: 'top', color: C.ink2, formatter: q => pct(q.value) } },
+    { name: 'Group B', type: 'bar', data: [al.d1.B, al.d7.B], itemStyle: barB, barMaxWidth: 56,
+      label: { show: true, position: 'top', color: C.ink2, formatter: q => pct(q.value) } },
+  ],
+}));
+const sig = p => p < 0.05 ? '<span class="sig yes">Significant</span>' : '<span class="sig no">Not significant</span>';
+document.getElementById('t-ret').innerHTML =
+  '<tr><th>Day</th><th class="num">Group A</th><th class="num">Group B</th><th class="num">Difference (95% CI)</th><th class="num">P(B better)</th><th>Significance</th></tr>' +
+  [['Day 1', al.d1], ['Day 7', al.d7]].map(([d, m]) =>
+    `<tr><td>${d}</td><td class="num">${pct(m.A, 2)}</td><td class="num">${pct(m.B, 2)}</td><td class="num">${pp(m.diff)} (${ciTxt(m.ci)})</td>` +
+    `<td class="num">${pct(m.p_b_better)}</td><td>${sig(m.p_value)} <span class="note">p = ${m.p_value.toFixed(3)}</span></td></tr>`).join('');
+
+// SRM chart
+mk('c-srm').setOption(Object.assign({}, base, {
+  grid: { left: 56, right: 16, top: 36, bottom: 28 },
+  tooltip: Object.assign({}, base.tooltip, { trigger: 'axis', axisPointer: { type: 'shadow' }, valueFormatter: v => v.toLocaleString('en-US') + ' players' }),
+  xAxis: cat({ data: ['Under 30 rounds', '30+ rounds'] }),
+  yAxis: val({ axisLabel: { color: C.muted, formatter: v => (v / 1000) + 'k' } }),
+  series: [
+    { name: 'Group A', type: 'bar', data: [S.below_30.n.A, S.reached_30.n.A], itemStyle: barA, barMaxWidth: 56,
+      label: { show: true, position: 'top', color: C.ink2, formatter: q => q.value.toLocaleString('en-US') } },
+    { name: 'Group B', type: 'bar', data: [S.below_30.n.B, S.reached_30.n.B], itemStyle: barB, barMaxWidth: 56,
+      label: { show: true, position: 'top', color: C.ink2, formatter: q => q.value.toLocaleString('en-US') } },
+  ],
+}));
+
+// Rounds distribution
+const rd = R.rounds_dist;
+mk('c-rounds').setOption(Object.assign({}, base, {
+  grid: { left: 48, right: 16, top: 36, bottom: 48 },
+  tooltip: Object.assign({}, base.tooltip, { trigger: 'axis', axisPointer: { type: 'shadow' }, valueFormatter: v => pct(v) }),
+  xAxis: cat({ data: rd.labels, name: 'Game rounds', nameLocation: 'middle', nameGap: 30, nameTextStyle: { color: C.ink2 }, axisLabel: { color: C.muted, fontSize: 11 } }),
+  yAxis: val({ max: 0.25, interval: 0.05, axisLabel: { color: C.muted, formatter: v => pct(v, 0) } }),
+  series: [
+    { name: 'Group A', type: 'bar', data: rd.A, itemStyle: { color: C.a, borderRadius: [3, 3, 0, 0] },
+      markArea: { silent: true, itemStyle: { color: 'rgba(137,135,129,0.10)' }, label: { color: C.ink2, position: 'insideTop', fontSize: 11 },
+        data: [[{ name: 'Never reached level 30', xAxis: '0' }, { xAxis: '20–29' }]] } },
+    { name: 'Group B', type: 'bar', data: rd.B, itemStyle: { color: C.b, borderRadius: [3, 3, 0, 0] } },
+  ],
+}));
+
+// Forest plot: D7 difference by segment
+const rows = [
+  ['All players (headline)', S.all.d7.diff, S.all.d7.ci],
+  ['Adjusted for group composition', R.stratified.d7.diff, R.stratified.d7.ci],
+  ['30+ rounds (could reach gate)', S.reached_30.d7.diff, S.reached_30.d7.ci],
+  ['Under 30 rounds (placebo)', S.below_30.d7.diff, S.below_30.d7.ci],
+];
+// symmetric axis rounded up to the next 0.5 pp so tick labels stay clean
+const lim = Math.ceil(Math.max(...rows.map(r => Math.max(Math.abs(r[2][0]), Math.abs(r[2][1])))) * 200) / 200;
+mk('c-forest').setOption(Object.assign({}, base, {
+  grid: { left: 210, right: 24, top: 10, bottom: 30 },
+  tooltip: Object.assign({}, base.tooltip, { formatter: q => `${q.name}<br><b>${pp(q.value[1])}</b> (${ciTxt([q.value[2], q.value[3]])})` }),
+  xAxis: { type: 'value', min: -lim, max: lim, interval: 0.005, splitLine: { lineStyle: { color: C.grid } },
+    axisLabel: { color: C.muted, formatter: v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v * 100).toFixed(1) + ' pp' } },
+  yAxis: cat({ data: rows.map(r => r[0]), inverse: true }),
+  series: [{
+    type: 'custom', data: rows.map((r, i) => ({ name: r[0], value: [i, r[1], r[2][0], r[2][1]] })),
+    renderItem: (params, api) => {
+      const y = api.coord([0, api.value(0)])[1];
+      const lo = api.coord([api.value(2), 0])[0], hi = api.coord([api.value(3), 0])[0], x = api.coord([api.value(1), 0])[0];
+      const col = api.value(0) === 3 ? C.muted : C.ink;
+      return { type: 'group', children: [
+        { type: 'line', shape: { x1: lo, y1: y, x2: hi, y2: y }, style: { stroke: col, lineWidth: 2 } },
+        { type: 'line', shape: { x1: lo, y1: y - 6, x2: lo, y2: y + 6 }, style: { stroke: col, lineWidth: 2 } },
+        { type: 'line', shape: { x1: hi, y1: y - 6, x2: hi, y2: y + 6 }, style: { stroke: col, lineWidth: 2 } },
+        { type: 'circle', shape: { cx: x, cy: y, r: 6 }, style: { fill: C.b, stroke: C.surface, lineWidth: 2 } },
+      ] };
+    },
+    markLine: { silent: true, symbol: 'none', lineStyle: { color: C.axis, type: 'solid', width: 1.5 }, label: { show: false }, data: [{ xAxis: 0 }] },
+  }],
+}));
+const segRows = [['All players (headline)', S.all], ['30+ rounds (could reach gate)', S.reached_30], ['Under 30 rounds (placebo)', S.below_30]];
+document.getElementById('t-seg').innerHTML =
+  '<tr><th>Segment</th><th class="num">Players</th><th class="num">D1 difference (95% CI)</th><th class="num">D7 difference (95% CI)</th><th class="num">P(B better), D7</th></tr>' +
+  segRows.map(([n, s]) => `<tr><td>${n}</td><td class="num">${(s.n.A + s.n.B).toLocaleString('en-US')}</td>` +
+    `<td class="num">${pp(s.d1.diff)} (${ciTxt(s.d1.ci)})</td><td class="num">${pp(s.d7.diff)} (${ciTxt(s.d7.ci)})</td><td class="num">${pct(s.d7.p_b_better)}</td></tr>`).join('') +
+  `<tr><td>Adjusted for group composition</td><td class="num">${R.n_total.toLocaleString('en-US')}</td><td class="num">${pp(R.stratified.d1.diff)} (${ciTxt(R.stratified.d1.ci)})</td>` +
+  `<td class="num">${pp(R.stratified.d7.diff)} (${ciTxt(R.stratified.d7.ci)})</td><td class="num">—</td></tr>`;
+</script>
+</body>
+</html>

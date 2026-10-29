@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payment Funnel Audit</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+    --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
+    --good: #0ca30c; --warn: #fab219; --bad: #d03b3b; --info: #2a78d6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 16px 40px; }
+  h1 { font-size: 26px; margin: 0 0 4px; font-weight: 650; }
+  .sub { color: var(--ink-2); margin: 0 0 10px; }
+  .badge { display: inline-block; background: #fff6e0; border: 1px solid #f1d79a; color: #6b4b00; border-radius: 999px; padding: 3px 10px; font-size: 12.5px; margin-bottom: 18px; }
+  h2 { font-size: 18px; margin: 0 0 4px; font-weight: 640; }
+  .note { color: var(--muted); font-size: 12.5px; margin: 0 0 8px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin-bottom: 16px; }
+  .verdict { border-left: 4px solid var(--ink); font-size: 15px; }
+  .verdict ol { margin: 8px 0 0; padding-left: 22px; } .verdict li { margin: 6px 0; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .kpi { margin: 0; } .kpi .label { color: var(--ink-2); font-size: 13px; } .kpi .value { font-size: 26px; font-weight: 650; }
+  .chart { width: 100%; height: 300px; }
+  .tag { display: inline-block; font-size: 11.5px; font-weight: 600; border-radius: 4px; padding: 1px 7px; margin-left: 8px; vertical-align: 2px; }
+  .tag.bug { background: #fbe3e3; color: #9c1f1f; } .tag.beh { background: #e3f0fb; color: #184f95; } .tag.ux { background: #fff1d6; color: #6b4b00; }
+  .info { background: #eef4fc; border-left: 4px solid var(--info); border-radius: 6px; padding: 10px 14px; margin-top: 10px; }
+  .info.warn { background: #fff6e0; border-left-color: var(--warn); } .info.bad { background: #fdeeee; border-left-color: var(--bad); }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  th { color: var(--ink-2); font-weight: 600; font-size: 13px; } td.num, th.num { text-align: right; }
+  td.hl { background: #fdeeee; font-weight: 600; }
+  pre { background: #f3f2ee; border: 1px solid var(--grid); border-radius: 6px; padding: 12px; overflow-x: auto; font-size: 12.5px; line-height: 1.45; }
+  details summary { cursor: pointer; font-weight: 600; }
+  footer { color: var(--ink-2); font-size: 12.5px; } footer p { margin: 6px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Payment Funnel Audit — In-App Store</h1>
+  <p class="sub" id="sub"></p>
+  <span class="badge">Synthetic data · issues were planted to demonstrate the audit method</span>
+
+  <div class="card verdict"><!--verdict--></div>
+
+  <section class="kpis" id="kpis"></section>
+
+  <div class="card">
+    <h2>Funnel</h2>
+    <p class="note">Store sessions reaching each step · step conversion from the previous step by platform below</p>
+    <div class="chart" id="c-funnel" style="height:270px"></div>
+    <table id="t-funnel"></table>
+    <div class="info">Three cells stand out against the other platforms (highlighted): iOS <b>Buy → Checkout</b>, Android
+      <b>Checkout → Payment method</b>, and mobile web <b>Submit → Success</b>. Each is examined below — they turn out to be three different kinds of problem.</div>
+  </div>
+
+  <div class="card">
+    <h2>Android 5.2 Release <span class="tag bug">Bug</span></h2>
+    <p class="note">Checkout → payment method selected, daily</p>
+    <div class="chart" id="c-android"></div>
+    <table id="t-android"></table>
+    <div class="info bad"><!--android_info--></div>
+  </div>
+
+  <div class="card">
+    <h2>Buy Clicks Without Checkout <span class="tag beh">User behaviour</span></h2>
+    <p class="note">What happened after a "Buy" click, by platform</p>
+    <div class="chart" id="c-clicks" style="height:260px"></div>
+    <div class="info"><!--clicks_info--></div>
+  </div>
+
+  <div class="card">
+    <h2>3-D Secure on Mobile Web <span class="tag ux">UX / payments</span></h2>
+    <p class="note">Card payments: share of 3-D Secure challenges the user completed</p>
+    <div class="chart" id="c-3ds" style="height:260px"></div>
+    <table id="t-3ds"></table>
+    <div class="info warn"><!--threeds_info--></div>
+  </div>
+
+  <div class="card">
+    <h2>Priorities</h2>
+    <table id="t-prio"></table>
+    <p class="note" style="margin-top:8px">Revenue impact = lost conversions × downstream conversion × average order value, scaled to 30 days. Android uses the run-rate of the last 7 days (85% of Android users on 5.2).</p>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>How the funnel was measured (SQL)</summary>
+      <p class="note" style="margin-top:8px">One row per session with a flag per step, then aggregated by platform. The same session table feeds every query in the audit.</p>
+      <pre id="sql"></pre>
+    </details>
+  </div>
+
+  <footer>
+    <p><b>Data.</b> Synthetic event log for a fictional app (250,000 store sessions, 8 weeks, 4 platforms), generated with a fixed seed.
+      Three issues were planted on purpose; the audit works only from events and recovered all three (estimated vs planted:
+      Android failure <!--t_bug-->, iOS dialog close <!--t_dialog-->, mobile-web 3-D Secure completion <!--t_3ds-->).</p>
+    <p><b>Tools.</b> SQL (DuckDB) for the funnel queries, Python for data generation, ECharts for the report.</p>
+  </footer>
+</div>
+
+<script>
+const R = /*__DATA__*/null;
+const C = { s1: '#2a78d6', s2: '#eb6834', s3: '#1baf7a', s4: '#eda100', ink: '#0b0b0b', ink2: '#52514e', muted: '#898781',
+            grid: '#e1e0d9', axis: '#c3c2b7', surface: '#fcfcfb', gray: '#b5b3ab' };
+const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+const PL = { web_desktop: 'Web desktop', web_mobile: 'Mobile web', ios: 'iOS app', android: 'Android app' };
+const ORDER = ['web_desktop', 'web_mobile', 'ios', 'android'];
+const pct = (v, d = 1) => (v * 100).toFixed(d) + '%';
+const usd = v => '$' + Math.round(v).toLocaleString('en-US');
+const fmt = v => Math.round(v).toLocaleString('en-US');
+const base = {
+  textStyle: { fontFamily: FONT, color: C.ink2 },
+  tooltip: { backgroundColor: '#fff', borderColor: C.axis, textStyle: { color: C.ink, fontFamily: FONT } },
+  legend: { top: 0, left: 0, icon: 'roundRect', itemWidth: 12, itemHeight: 8, textStyle: { color: C.ink2 } },
+};
+const cat = x => Object.assign({ type: 'category', axisLine: { lineStyle: { color: C.axis } }, axisTick: { show: false }, axisLabel: { color: C.ink2 } }, x);
+const val = x => Object.assign({ type: 'value', min: 0, splitLine: { lineStyle: { color: C.grid } }, axisLabel: { color: C.muted } }, x);
+const mk = id => { const c = echarts.init(document.getElementById(id), null, { renderer: 'svg' }); addEventListener('resize', () => c.resize()); return c; };
+
+const F = Object.fromEntries(R.funnel.map(r => [r.platform, r]));
+const STEPS = [['store_open', 'Store opened'], ['buy_click', 'Buy clicked'], ['checkout_open', 'Checkout opened'],
+  ['method_selected', 'Payment method selected'], ['payment_submit', 'Payment submitted'], ['payment_success', 'Payment succeeded']];
+document.getElementById('sub').textContent =
+  `Fictional app · ${fmt(F.all.store_open)} store sessions · ${R.period.start.slice(0, 10)} – ${R.period.end.slice(0, 10)} · web desktop, mobile web, iOS, Android`;
+
+document.getElementById('kpis').innerHTML = [
+  ['Store sessions', fmt(F.all.store_open)],
+  ['Purchase conversion', pct(F.all.payment_success / F.all.store_open)],
+  ['Checkout → paid', pct(F.all.payment_success / F.all.checkout_open)],
+  ['Revenue / month', usd(R.revenue_monthly)],
+].map(([l, v]) => `<div class="card kpi"><div class="label">${l}</div><div class="value">${v}</div></div>`).join('');
+
+// overall funnel bars
+mk('c-funnel').setOption(Object.assign({}, base, {
+  grid: { left: 170, right: 90, top: 6, bottom: 6 },
+  tooltip: Object.assign({}, base.tooltip, { trigger: 'item', formatter: q => `${q.name}: <b>${fmt(q.value)}</b> sessions` }),
+  xAxis: { type: 'value', show: false, min: 0 },
+  yAxis: cat({ data: STEPS.map(s => s[1]), inverse: true, axisLine: { show: false } }),
+  series: [{ type: 'bar', data: STEPS.map(s => F.all[s[0]]), barMaxWidth: 26, itemStyle: { color: C.s1, borderRadius: [0, 4, 4, 0] },
+    label: { show: true, position: 'right', color: C.ink2, formatter: q => fmt(q.value) + (q.dataIndex ? '  (' + pct(q.value / F.all[STEPS[q.dataIndex - 1][0]], 0) + ')' : '') } }],
+}));
+const HL = { 'buy_click>checkout_open|ios': 1, 'checkout_open>method_selected|android': 1, 'payment_submit>payment_success|web_mobile': 1 };
+document.getElementById('t-funnel').innerHTML =
+  '<tr><th>Step</th>' + ORDER.map(p => `<th class="num">${PL[p]}</th>`).join('') + '<th class="num">All</th></tr>' +
+  STEPS.slice(1).map((s, i) => {
+    const prev = STEPS[i][0];
+    return `<tr><td>${STEPS[i][1]} → ${s[1]}</td>` + ORDER.map(p =>
+      `<td class="num${HL[prev + '>' + s[0] + '|' + p] ? ' hl' : ''}">${pct(F[p][s[0]] / F[p][prev])}</td>`).join('') +
+      `<td class="num">${pct(F.all[s[0]] / F.all[prev])}</td></tr>`;
+  }).join('');
+
+// Android daily
+const series = {};
+R.daily.forEach(d => { (series[d.series] = series[d.series] || {})[d.day] = d.method / d.checkout; });
+const days = [...new Set(R.daily.map(d => d.day))].sort();
+const lineCol = { 'Android 5.1': C.s1, 'Android 5.2': C.s2, 'Other platforms': C.gray };
+mk('c-android').setOption(Object.assign({}, base, {
+  grid: { left: 48, right: 16, top: 56, bottom: 28 },
+  tooltip: Object.assign({}, base.tooltip, { trigger: 'axis', valueFormatter: v => v == null ? '—' : pct(v) }),
+  xAxis: cat({ data: days, boundaryGap: false, axisLabel: { color: C.muted, formatter: v => v.slice(5) } }),
+  yAxis: val({ max: 1, axisLabel: { color: C.muted, formatter: v => pct(v, 0) } }),
+  series: ['Other platforms', 'Android 5.1', 'Android 5.2'].map(n => ({
+    name: n, type: 'line', showSymbol: false, symbolSize: 8, connectNulls: false,
+    data: days.map(d => series[n] && series[n][d] != null ? series[n][d] : null),
+    lineStyle: { width: 2, color: lineCol[n], type: n === 'Other platforms' ? 'dashed' : 'solid' }, itemStyle: { color: lineCol[n] },
+    markLine: n === 'Android 5.2' ? { silent: true, symbol: 'none', lineStyle: { color: C.ink2, type: 'dotted' },
+      label: { formatter: '5.2 release', color: C.ink2, position: 'end', rotate: 0 }, data: [{ xAxis: R.release_day.slice(0, 10) }] } : undefined,
+  })),
+}));
+document.getElementById('t-android').innerHTML =
+  '<tr><th>Android version (since release)</th><th class="num">Checkouts</th><th class="num">Payment method selected</th><th class="num">Drop-offs with an error event</th></tr>' +
+  R.android_v.map(v => `<tr><td>${v.app_version}</td><td class="num">${fmt(v.checkout)}</td><td class="num${v.app_version === '5.2' ? ' hl' : ''}">${pct(v.method_rate)}</td>` +
+    `<td class="num">${pct(v.error_share_of_drops)}</td></tr>`).join('');
+
+// clicks stacked 100%
+const CK = Object.fromEntries(R.clicks.map(c => [c.platform, c]));
+mk('c-clicks').setOption(Object.assign({}, base, {
+  grid: { left: 100, right: 56, top: 36, bottom: 24 },
+  tooltip: Object.assign({}, base.tooltip, { trigger: 'axis', axisPointer: { type: 'shadow' }, valueFormatter: v => pct(v) }),
+  xAxis: val({ max: 1, axisLabel: { color: C.muted, formatter: v => pct(v, 0) } }),
+  yAxis: cat({ data: ORDER.map(p => PL[p]), inverse: true }),
+  series: [['Reached checkout', 'checkout_rate', C.s1], ['Closed the price dialog', 'dialog_closed_rate', C.s3], ['No checkout, no signal', 'unexplained_rate', C.s2]]
+    .map(([n, k, col]) => ({ name: n, type: 'bar', stack: 'c', barMaxWidth: 26, data: ORDER.map(p => CK[p][k]),
+      itemStyle: { color: col, borderColor: C.surface, borderWidth: 1 },
+      // dialog share sits inside its own (wide) segment; the small "no signal" share goes to the right of the bar
+      label: k === 'checkout_rate' ? { show: false }
+        : k === 'dialog_closed_rate' ? { show: true, position: 'inside', color: '#fff', fontWeight: 600, formatter: q => q.value > 0.005 ? pct(q.value) : '' }
+        : { show: true, position: 'right', color: C.ink2, formatter: q => pct(q.value) } })),
+}));
+
+// 3DS
+const T = Object.fromEntries(R.threeds.map(t => [t.platform, t]));
+mk('c-3ds').setOption(Object.assign({}, base, {
+  grid: { left: 48, right: 16, top: 16, bottom: 28 },
+  tooltip: Object.assign({}, base.tooltip, { trigger: 'axis', axisPointer: { type: 'shadow' }, valueFormatter: v => pct(v) }),
+  xAxis: cat({ data: ORDER.map(p => PL[p]) }),
+  yAxis: val({ max: 1, axisLabel: { color: C.muted, formatter: v => pct(v, 0) } }),
+  series: [{ type: 'bar', barMaxWidth: 56, data: ORDER.map(p => ({ value: T[p].completion_rate, itemStyle: { color: p === 'web_mobile' ? C.s2 : C.s1, borderRadius: [4, 4, 0, 0] } })),
+    label: { show: true, position: 'top', color: C.ink2, formatter: q => pct(q.value) } }],
+}));
+document.getElementById('t-3ds').innerHTML =
+  '<tr><th>Platform</th><th class="num">Card payments</th><th class="num">3-D Secure challenges</th><th class="num">Challenge completed</th><th class="num">Success, challenged</th><th class="num">Success, not challenged</th></tr>' +
+  ORDER.map(p => { const t = T[p]; return `<tr><td>${PL[p]}</td><td class="num">${fmt(t.card_submits)}</td><td class="num">${fmt(t.challenged)}</td>` +
+    `<td class="num${p === 'web_mobile' ? ' hl' : ''}">${pct(t.completion_rate)}</td><td class="num">${pct(t.success_challenged)}</td><td class="num">${pct(t.success_not_challenged)}</td></tr>`; }).join('');
+
+document.getElementById('t-prio').innerHTML = /*__PRIO__*/'';
+document.getElementById('sql').textContent = R.funnel_sql;
+</script>
+</body>
+</html>

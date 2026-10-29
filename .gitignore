@@ -1,0 +1,5 @@
+# raw / intermediate data and local outputs are not published
+*/data/
+*/output/
+__pycache__/
+*.pyc
