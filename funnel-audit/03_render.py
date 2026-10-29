@@ -68,7 +68,7 @@ prio = [
 prio_html = ("<tr><th>#</th><th>Issue</th><th>Type</th><th>Affected</th><th class='num'>Revenue impact / month</th><th>Next step</th></tr>"
              + "".join(f"<tr><td>{a}</td><td>{b}</td><td>{c}</td><td>{d}</td><td class='num'><b>{e}</b></td><td>{f}</td></tr>" for a, b, c, d, e, f in prio))
 
-html = (ROOT / "template.html").read_text(encoding="utf-8")
+html = (ROOT / "report_template.html").read_text(encoding="utf-8")
 for k, v in text.items():
     html = html.replace(f"<!--{k}-->", v)
 html = html.replace("/*__PRIO__*/''", json.dumps(prio_html)).replace("/*__DATA__*/null", json.dumps(r))

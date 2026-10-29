@@ -78,7 +78,7 @@ reco_html = (
     f"(about {need_total / 1000:,.0f}k players to detect a {abs(ex['d7']['diff']) * 100:.1f} pp D7 change among exposed players).</li></ul>"
 )
 
-html = (ROOT / "template.html").read_text(encoding="utf-8")
+html = (ROOT / "report_template.html").read_text(encoding="utf-8")
 for k, v in text.items():
     html = html.replace(f"<!--{k}-->", v)
 html = html.replace("<!--conclusions-->", concl_html).replace("<!--reco-->", reco_html)

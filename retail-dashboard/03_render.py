@@ -39,7 +39,7 @@ insights = [
 ]
 insights_html = "\n".join(f"<li>{s}</li>" for s in insights)
 
-html = (ROOT / "template.html").read_text(encoding="utf-8")
+html = (ROOT / "report_template.html").read_text(encoding="utf-8")
 html = html.replace("/*__DATA__*/null", json.dumps(m)).replace("<!--__INSIGHTS__-->", insights_html)
 (OUT / "retail_dashboard.html").write_text(html, encoding="utf-8")
 print("written", OUT / "retail_dashboard.html")
