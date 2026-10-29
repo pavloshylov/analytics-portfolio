@@ -7,9 +7,9 @@ Each case is a full analysis with a clear recommendation. Public or synthetic da
 
 | Case | What it shows | Report | Code |
 |---|---|---|---|
-| Mobile Game A/B Test | Sample-ratio mismatch, placebo check, bootstrap CIs, Bayesian probability, power / MDE | [open](https://pavloshylov.github.io/analytics-portfolio/ab-test/) | [ab-test-cookie-cats](ab-test-cookie-cats/) |
-| Payment Funnel Audit | Funnel in SQL, bug vs. user behaviour vs. UX, revenue impact, priorities | [open](https://pavloshylov.github.io/analytics-portfolio/funnel-audit/) | [funnel-audit](funnel-audit/) |
-| E-commerce Dashboard | Data cleaning, YoY revenue, new vs returning, cohort retention, markets | [open](https://pavloshylov.github.io/analytics-portfolio/retail-dashboard/) | [retail-dashboard](retail-dashboard/) |
+| Mobile Game A/B Test | Sample-ratio mismatch, placebo check, bootstrap CIs, Bayesian probability, power / MDE | [open](https://pavloshylov.github.io/analytics-portfolio/mobile-game-ab-test.html) | [ab-test-cookie-cats](ab-test-cookie-cats/) |
+| Payment Funnel Audit | Funnel in SQL, bug vs. user behaviour vs. UX, revenue impact, priorities | [open](https://pavloshylov.github.io/analytics-portfolio/payment-funnel-audit.html) | [funnel-audit](funnel-audit/) |
+| E-commerce Dashboard | Data cleaning, YoY revenue, new vs returning, cohort retention, markets | [open](https://pavloshylov.github.io/analytics-portfolio/ecommerce-dashboard.html) | [retail-dashboard](retail-dashboard/) |
 
 ## Reproduce
 
